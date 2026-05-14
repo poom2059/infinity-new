@@ -1,0 +1,3 @@
+# Copy to android/local.properties and fix paths (local.properties is gitignored)
+flutter.sdk=C:\\path\\to\\flutter
+sdk.dir=C:\\Users\\YOUR_USER\\AppData\\Local\\Android\\Sdk

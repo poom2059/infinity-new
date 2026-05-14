@@ -1,0 +1,15 @@
+---
+description: รัน Flutter web หลังแก้โค้ดในโปรเจกต์นี้
+alwaysApply: true
+---
+
+# รันหน้าเว็บหลังแก้ไข
+
+เมื่อแก้ไฟล์ที่ glob นี้แล้ว (เช่น `lib/main.dart`, `pubspec.yaml`, หรือ `web/`) ให้ **รันหน้าเว็บใหม่** เพื่อให้ผู้ใช้เห็นผลทันที:
+
+1. จากรากโปรเจกต์ (โฟลเดอร์ที่มี `pubspec.yaml` — โปรเจกต์นี้อยู่ที่ `c:\Users\Admin\Desktop\infinity-new-main`) รันคำสั่ง  
+   `flutter run -d chrome`  
+   หรือรัน `run_web.bat` ในรากโปรเจกต์ (สคริปต์จะหา Flutter SDK จาก `FLUTTER_ROOT` / PATH /ตำแหน่งติดตั้งทั่วไปให้)  
+   ในเทอร์มินัลแบบ **background** (`block_until_ms: 0`) หลังจบการแก้ชุดนั้น — ไม่ต้องรอให้ผู้ใช้สั่งเอง  
+   **Windows PowerShell:** ตั้ง `working_directory` เป็นรากโปรเจกต์แล้วรัน `flutter run -d chrome` หรือ `cmd /c run_web.bat` อย่างเดียว หรือใช้ `;` แทน `&&` — บางรุ่น PowerShell ไม่รองรับ `&&`
+2. ถ้ามีเทอร์มินัลที่รัน `flutter run -d chrome` อยู่แล้วและผู้ใช้ไม่ต้องการหลายหน้าต่าง Chrome ให้แจ้งสั้นๆ ว่าสามารถกด **R** (hot restart) ในเทอร์มินัลเดิมแทนได้ — แต่ค่าเริ่มต้นตามกฎนี้คือรันคำสั่งข้างต้นหลังแก้โค้ด

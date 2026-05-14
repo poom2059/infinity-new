@@ -1,0 +1,18 @@
+{
+  "dart.flutterSdkPath": "${env:USERPROFILE}\\flutter",
+  "terminal.integrated.defaultProfile.windows": "Command Prompt",
+  "terminal.integrated.profiles.windows": {
+    "Command Prompt": {
+      "path": "${env:windir}\\System32\\cmd.exe",
+      "args": [],
+      "icon": "terminal-cmd"
+    }
+  },
+  "terminal.integrated.automationProfile.windows": {
+    "path": "${env:windir}\\System32\\cmd.exe",
+    "args": []
+  },
+  "terminal.integrated.env.windows": {
+    "PATH": "${env:FLUTTER_ROOT}\\bin;C:\\flutter\\bin;C:\\src\\flutter\\bin;D:\\flutter\\bin;${env:USERPROFILE}\\flutter\\bin;${env:LOCALAPPDATA}\\flutter\\bin;${env:PATH}"
+  }
+}
