@@ -8,9 +8,13 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const serverRoot = path.join(__dirname, '..');
+const dataDir = path.join(serverRoot, 'data');
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+}
 const dbPath = process.env.DB_PATH
   ? path.resolve(process.env.DB_PATH)
-  : path.join(serverRoot, 'infinity.sqlite');
+  : path.join(dataDir, 'infinity.sqlite');
 const db = new Database(dbPath);
 
 db.exec(`

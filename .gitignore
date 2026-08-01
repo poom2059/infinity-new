@@ -49,6 +49,6 @@ app.*.map.json
 
 # Cloudways / Node API
 /server/node_modules/
-/server/public/
 /server/infinity.sqlite
+/server/data/*.sqlite
 /deploy/cloudways/dist/
