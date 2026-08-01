@@ -308,6 +308,7 @@ class PlacedOrder {
     required this.deliveryBreakdown,
     required this.pickupMode,
     this.statusLabel = 'กำลังจัดส่ง',
+    this.paymentIntentId,
   });
 
   final String id;
@@ -318,6 +319,7 @@ class PlacedOrder {
   final DeliveryPhaseBreakdown deliveryBreakdown;
   final bool pickupMode;
   String statusLabel;
+  final String? paymentIntentId;
 
   bool get isActive {
     const done = {'สำเร็จ', 'ส่งสำเร็จ', 'ยกเลิก'};

@@ -68,14 +68,18 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     );
   }
 
-  void _apply(JobListing j) {
-    JobStore.instance.apply(j.id, _userId(), _userName());
-    if (!mounted) {
-      return;
+  Future<void> _apply(JobListing j) async {
+    try {
+      await JobStore.instance.apply(j.id, _userId(), _userName());
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('คุณกดรับงานแล้ว — ผู้ว่าจ้างจะเห็นในรายการผู้สมัคร')),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ไม่สำเร็จ: $e')));
+      }
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('คุณกดรับงานแล้ว — ผู้ว่าจ้างจะเห็นในรายการผู้สมัคร')),
-    );
   }
 
   Future<void> _pickWorker(JobListing j, JobApplicant a) async {
@@ -99,20 +103,17 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
     if (ok != true || !mounted) {
       return;
     }
-    JobStore.instance.assignWorker(j.id, a.id);
-    if (!mounted) {
-      return;
+    try {
+      await JobStore.instance.assignWorker(j.id, a.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เลือก ${a.displayName} เป็นผู้รับงานแล้ว')),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ไม่สำเร็จ: $e')));
+      }
     }
-    final String poster = j.posterName;
-    final String worker = a.displayName;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'แจ้งเตือนผู้ว่าจ้าง ($poster): เลือก $worker แล้ว\n'
-          'แจ้งเตือนผู้รับงาน ($worker): คุณได้รับเลือกให้ทำงาน',
-        ),
-      ),
-    );
   }
 
   @override

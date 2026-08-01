@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' show ImageFilter;
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,9 +13,9 @@ import 'app/app_theme.dart';
 import 'app/avatar_frames.dart';
 import 'app/login_screen.dart';
 import 'app/notifications_screen.dart';
+import 'app/payment_checkout_sheet.dart';
 import 'app/profile_edit_screen.dart';
 import 'app/saved_places_screen.dart';
-import 'app/social_login_buttons.dart';
 import 'app/ui_strings_th.dart';
 import 'config/app_config.dart';
 import 'data/addresses/address_repository.dart';
@@ -23,6 +24,7 @@ import 'data/api/infinity_api_client.dart';
 import 'data/auth/auth_repository.dart';
 import 'data/auth/auth_session.dart';
 import 'data/auth/auth_user.dart';
+import 'data/bookings/booking_repository.dart';
 import 'data/catalog/catalog_repository.dart';
 import 'data/maps/maps_repository.dart';
 import 'data/merchant/merchant_repository.dart';
@@ -34,12 +36,14 @@ import 'data/profile/profile_store.dart';
 import 'data/push/push_registration_repository.dart';
 import 'data/wallet/wallet_repository.dart';
 import 'domain/food_ordering.dart';
+import 'firebase_options.dart';
+import 'jobs/job_hub_tab.dart';
+import 'jobs/job_store.dart';
 import 'portals/admin_portal_screen.dart';
 import 'portals/merchant_menu_manage_screen.dart';
 import 'portals/merchant_onboarding_screen.dart';
-import 'jobs/job_hub_tab.dart';
-import 'wallet/wallet_payment_screen.dart';
 import 'portals/merchant_portal_screen.dart';
+import 'wallet/wallet_payment_screen.dart';
 
 /// โลโก้หน้า splash (กว้าง)
 const double kLogoSplashWidth = 504;
@@ -396,15 +400,17 @@ class _AppBarTitleWithLogo extends StatelessWidget {
   }
 }
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  if (DefaultFirebaseOptions.isConfigured) {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  }
   runApp(const InfinityProductionBootstrap());
 }
 
 class OrderStore {
   static final ValueNotifier<int> revision = ValueNotifier<int>(0);
   static final List<PlacedOrder> _orders = <PlacedOrder>[];
-  static bool _demoSeeded = false;
   static bool _remoteLoadAttempted = false;
 
   static List<PlacedOrder> ordersForDisplay() {
@@ -452,66 +458,17 @@ class OrderStore {
     }
   }
 
-  static Future<void> ensureDemoHistory() async {
-    if (AppScope.ordersRemote) {
-      if (_remoteLoadAttempted) {
-        return;
-      }
-      _remoteLoadAttempted = true;
-      try {
-        final remote = await AppScope.orderRepository!.listOrders(AppScope.merchantsForOrders);
-        _orders.clear();
-        _orders.addAll(remote);
-        revision.value++;
-      } catch (_) {}
+  static Future<void> loadRemoteHistory() async {
+    if (!AppScope.ordersRemote || _remoteLoadAttempted) {
       return;
     }
-    if (_demoSeeded) {
-      return;
-    }
-    _demoSeeded = true;
-    if (kSeedMerchants.isEmpty) {
-      return;
-    }
-    final RegisteredMerchant m0 = kSeedMerchants[0];
-    final RegisteredMerchant m1 =
-        kSeedMerchants.length > 1 ? kSeedMerchants[1] : kSeedMerchants[0];
-    final List<FoodMenuItem> menu0 = menuForMerchant(m0);
-    final List<FoodMenuItem> menu1 = menuForMerchant(m1);
-    final List<OrderLine> lines0 = <OrderLine>[
-      if (menu0.isNotEmpty) OrderLine(itemName: menu0[0].name, unitPrice: menu0[0].price, qty: 2),
-      if (menu0.length > 1) OrderLine(itemName: menu0[1].name, unitPrice: menu0[1].price, qty: 1),
-    ];
-    final int total0 = lines0.fold(0, (int s, OrderLine e) => s + e.unitPrice * e.qty);
-    _orders.add(
-      PlacedOrder(
-        id: 'demo-past-1',
-        placedAt: DateTime.now().subtract(const Duration(days: 3, hours: 2)),
-        merchant: m0,
-        lines: lines0,
-        totalBaht: total0,
-        deliveryBreakdown: estimateDeliveryPhases(m0, pickupMode: false),
-        pickupMode: false,
-        statusLabel: 'สำเร็จ',
-      ),
-    );
-    final List<OrderLine> lines1 = <OrderLine>[
-      if (menu1.isNotEmpty) OrderLine(itemName: menu1[0].name, unitPrice: menu1[0].price, qty: 1),
-    ];
-    final int total1 = lines1.fold(0, (int s, OrderLine e) => s + e.unitPrice * e.qty);
-    _orders.add(
-      PlacedOrder(
-        id: 'demo-past-2',
-        placedAt: DateTime.now().subtract(const Duration(hours: 18)),
-        merchant: m1,
-        lines: lines1,
-        totalBaht: total1,
-        deliveryBreakdown: estimateDeliveryPhases(m1, pickupMode: false),
-        pickupMode: false,
-        statusLabel: 'สำเร็จ',
-      ),
-    );
-    revision.value++;
+    _remoteLoadAttempted = true;
+    try {
+      final remote = await AppScope.orderRepository!.listOrders(AppScope.merchantsForOrders);
+      _orders.clear();
+      _orders.addAll(remote);
+      revision.value++;
+    } catch (_) {}
   }
 }
 
@@ -570,33 +527,10 @@ class SplashScreen extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        SizedBox(
-                          height: 52,
-                          child: FilledButton(
-                            onPressed: () {
-                              Navigator.of(context).pushReplacement(
-                                MaterialPageRoute<void>(
-                                  builder: (context) => const HomeScreen(),
-                                ),
-                              );
-                            },
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.accent,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            ),
-                            child: const Text('เข้าสู่ระบบ', style: TextStyle(fontWeight: FontWeight.w800)),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        SocialLoginButtons(
-                          onProvider: (provider) {
-                            Navigator.of(context).pushReplacement(
-                              MaterialPageRoute<void>(
-                                builder: (context) => const HomeScreen(),
-                              ),
-                            );
-                          },
+                        const Text(
+                          'กรุณาเข้าสู่ระบบด้วยเบอร์โทรหรือบัญชีโซเชียล',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white70),
                         ),
                       ],
                     ),
@@ -621,7 +555,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   int _walletBalanceTick = 0;
-  List<RegisteredMerchant> _catalogMerchants = List<RegisteredMerchant>.from(kSeedMerchants);
+  List<RegisteredMerchant> _catalogMerchants = <RegisteredMerchant>[];
   AuthUser? _accountUser;
 
   @override
@@ -671,18 +605,26 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _submitBooking(String kind, {Map<String, dynamic>? payload, String? title}) async {
+    try {
+      final booking = context.read<BookingRepository>();
+      final created = await booking.create(kind: kind, payload: payload ?? {});
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${title ?? kind} บันทึกแล้ว (#${created['id']}) — รอเจ้าหน้าที่ติดต่อ')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('ไม่สำเร็จ: $e')),
+      );
+    }
+  }
+
   void _onHomeTap(String code) {
     if (code.startsWith('demo:vehicle:')) {
       final String vehicle = code.substring('demo:vehicle:'.length);
-      showDemoInfoSheet(
-        context,
-        title: vehicle,
-        paragraphs: const <String>[
-          'เลือกจุดรับและจุดส่ง แสดงราคาโดยประมาณก่อนยืนยัน (ข้อมูลสาธิต)',
-          'บริการจริงต้องเชื่อมผู้ให้บริการภายนอกเมื่อระบบพร้อม',
-        ],
-        bullets: const <String>['ระบุประเภทรถที่ต้องการ', 'ติดตามสถานะบนแผนที่หลังยืนยัน'],
-      );
+      _submitBooking('ride', title: 'คำขอรถ$vehicle', payload: {'vehicle': vehicle});
       return;
     }
     switch (code) {
@@ -699,25 +641,10 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         return;
       case 'qr':
-        showDemoInfoSheet(
-          context,
-          title: 'สแกน QR',
-          paragraphs: const <String>[
-            'สแกนเพื่อชำระเงินหรือรับสิทธิ์ที่ร้านร่วมรายการ (ข้อมูลสาธิต)',
-            'ในเวอร์ชันจริงจะเปิดกล้องและตรวจจับ QR อัตโนมัติ',
-          ],
-        );
+        _submitBooking('qr_pay', title: 'คำขอสแกน QR');
         return;
       case 'demo:express':
-        showDemoInfoSheet(
-          context,
-          title: 'ส่งด่วน',
-          paragraphs: const <String>[
-            'ฝากส่งเอกสารและพัสดุเล็กภายในเมือง ภายในเวลาที่กำหนด',
-            'บริการนี้เป็นตัวอย่างในแอป — ยังไม่เชื่อมผู้ให้บริการจริง',
-          ],
-          bullets: const <String>['เลือกจุดรับ–ส่งบนแผนที่', 'เห็นค่าบริการก่อนยืนยัน'],
-        );
+        _submitBooking('express', title: 'คำขอส่งด่วน');
         return;
       case 'demo:promo':
         showDemoInfoSheet(
@@ -730,14 +657,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         return;
       case 'demo:travel':
-        showDemoInfoSheet(
-          context,
-          title: 'เดินทาง',
-          paragraphs: const <String>[
-            'จองการเดินทางและดูเส้นทางแนะนำ (ข้อมูลสาธิต)',
-            'ฟีเจอร์นี้แยกจากสั่งอาหาร — จะเชื่อมบริการภายนอกเมื่อพร้อมใช้งานจริง',
-          ],
-        );
+        _submitBooking('travel', title: 'คำขอเดินทาง');
         return;
       case 'demo:wallet':
         Navigator.of(context)
@@ -751,14 +671,7 @@ class _HomeScreenState extends State<HomeScreen> {
         });
         return;
       case 'demo:points':
-        showDemoInfoSheet(
-          context,
-          title: 'แลกคะแนน',
-          paragraphs: const <String>[
-            'คะแนนสะสมใช้แลกส่วนลดหรือของรางวัลจากร้านร่วมรายการ',
-            'ตัวเลข 3,800 คะแนนเป็นข้อมูลตัวอย่าง',
-          ],
-        );
+        _submitBooking('points_redeem', title: 'คำขอแลกคะแนน');
         return;
       case 'demo:promos_all':
         showDemoInfoSheet(
@@ -807,15 +720,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _openMart();
         return;
       case 'demo:car_ride':
-        showDemoInfoSheet(
-          context,
-          title: 'จองรถ',
-          paragraphs: const <String>[
-            'เลือกประเภทรถ จุดรับ และจุดส่ง — แสดงราคาโดยประมาณก่อนยืนยัน (ข้อมูลสาธิต)',
-            'บริการจริงต้องเชื่อมผู้ให้บริการภายนอกเมื่อระบบพร้อม',
-          ],
-          bullets: const <String>['รองรับการแชร์ค่าโดยสาร', 'ติดตามสถานะบนแผนที่'],
-        );
+        _submitBooking('ride', title: 'คำขอจองรถ', payload: {'vehicle': 'รถยนต์'});
         return;
       case 'demo:saved_places':
         Navigator.of(context).push<void>(
@@ -863,7 +768,7 @@ class _HomeScreenState extends State<HomeScreen> {
           context,
           title: 'เกี่ยวกับ ${UiStringsTh.appName}',
           paragraphs: const <String>[
-            'เวอร์ชันสาธิตสำหรับทดลองประสบการณ์ผู้ใช้',
+            'แอปสั่งอาหาร งาน และบริการขนส่ง — เชื่อมต่อ API จริง',
           ],
         );
         return;
@@ -1007,7 +912,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ? ValueListenableBuilder<int>(
                 valueListenable: OrderStore.revision,
                 builder: (BuildContext context, _, _) {
-                  OrderStore.ensureDemoHistory();
+                  OrderStore.loadRemoteHistory();
                   return _OrdersTabView(merchants: _sortedRegisteredMerchants());
                 },
               )
@@ -3397,11 +3302,21 @@ class _MartStoreDetailScreenState extends State<MartStoreDetailScreen> {
         ),
       );
     }
-    if (AppConfig.useApi) {
-      final pay = context.read<PaymentRepository>();
-      final intent = await pay.createIntent(amountBaht: _cartTotalBaht);
-      await pay.confirmMock(intent.id);
+    String? paymentIntentId;
+    final paid = await showPaymentCheckout(
+      context,
+      amountBaht: _cartTotalBaht,
+      purpose: 'order',
+    );
+    if (paid == null || !paid.isSucceeded) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ยังไม่ได้ชำระเงินสำเร็จ')),
+        );
+      }
+      return;
     }
+    paymentIntentId = paid.id;
     final String tentativeId = 'ord-${DateTime.now().millisecondsSinceEpoch}';
     final String orderId = await OrderStore.addOrder(
       PlacedOrder(
@@ -3413,6 +3328,7 @@ class _MartStoreDetailScreenState extends State<MartStoreDetailScreen> {
         deliveryBreakdown: breakdown,
         pickupMode: false,
         statusLabel: 'กำลังจัดส่ง',
+        paymentIntentId: paymentIntentId,
       ),
     );
     if (!mounted) {
@@ -4322,7 +4238,7 @@ class _MartScreenState extends State<MartScreen> {
   ];
 
   Future<void> _openFoodMerchantListFromMart() async {
-    List<RegisteredMerchant> merchants = List<RegisteredMerchant>.from(kSeedMerchants);
+    List<RegisteredMerchant> merchants = <RegisteredMerchant>[];
     try {
       merchants = await context.read<CatalogRepository>().fetchMerchants();
       merchants.sort((RegisteredMerchant a, RegisteredMerchant b) => b.usageCount.compareTo(a.usageCount));
@@ -5620,10 +5536,18 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
         ),
       );
     }
-    if (AppConfig.useApi) {
-      final pay = context.read<PaymentRepository>();
-      final intent = await pay.createIntent(amountBaht: _cartTotalBaht);
-      await pay.confirmMock(intent.id);
+    final paid = await showPaymentCheckout(
+      context,
+      amountBaht: _cartTotalBaht,
+      purpose: 'order',
+    );
+    if (paid == null || !paid.isSucceeded) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ยังไม่ได้ชำระเงินสำเร็จ')),
+        );
+      }
+      return;
     }
     final String tentativeId = 'ord-${DateTime.now().millisecondsSinceEpoch}';
     final String orderId = await OrderStore.addOrder(
@@ -5636,6 +5560,7 @@ class _RestaurantDetailScreenState extends State<RestaurantDetailScreen> {
         deliveryBreakdown: breakdown,
         pickupMode: widget.pickupMode,
         statusLabel: 'กำลังจัดส่ง',
+        paymentIntentId: paid.id,
       ),
     );
     if (!mounted) {
@@ -6786,6 +6711,7 @@ class InfinityProductionBootstrap extends StatelessWidget {
         final prefs = snap.data!;
         final session = AuthSession(prefs);
         final client = InfinityApiClient(tokenGetter: () async => session.tokenOrNull);
+        JobStore.instance.attachClient(client);
         return MultiProvider(
           providers: [
             Provider<AuthSession>.value(value: session),
@@ -6794,15 +6720,16 @@ class InfinityProductionBootstrap extends StatelessWidget {
             Provider(create: (_) => CatalogRepository(client)),
             Provider(create: (_) => OrderRepository(client)),
             Provider(create: (_) => AddressRepository(client)),
-            Provider(create: (_) => WalletRepository(client, prefs)),
+            Provider(create: (_) => WalletRepository(client)),
             Provider(create: (_) => PaymentRepository(client)),
             Provider(create: (_) => MapsRepository(client)),
             Provider(create: (_) => PushRegistrationRepository(client)),
             Provider(create: (_) => AdminRepository(client)),
             Provider(create: (_) => MerchantRepository(client)),
+            Provider(create: (_) => BookingRepository(client)),
             ChangeNotifierProvider<ProfileStore>(create: (_) => ProfileStore(prefs)),
-            ChangeNotifierProvider<NotificationStore>(create: (_) => NotificationStore(prefs)),
-            ChangeNotifierProvider<SavedPlacesStore>(create: (_) => SavedPlacesStore(prefs)),
+            ChangeNotifierProvider<NotificationStore>(create: (_) => NotificationStore(client)),
+            ChangeNotifierProvider<SavedPlacesStore>(create: (_) => SavedPlacesStore(client)),
           ],
           child: Builder(
             builder: (BuildContext c) {
@@ -6833,19 +6760,11 @@ class AppLogoutScope extends InheritedWidget {
     return context.findAncestorWidgetOfExactType<AppLogoutScope>() != null;
   }
 
-  /// ล็อกเอาต์ API หรือในโหมดสาธิต (ไม่มี API) กลับไปหน้า [SplashScreen]
+  /// ล็อกเอาต์แล้วกลับหน้าเข้าสู่ระบบ
   static Future<void> logoutOrDemoExit(BuildContext context) async {
     final scope = context.findAncestorWidgetOfExactType<AppLogoutScope>();
     if (scope != null) {
       await scope.logout();
-      return;
-    }
-    if (!AppConfig.useApi && context.mounted) {
-      final NavigatorState? nav = Navigator.maybeOf(context);
-      nav?.pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const SplashScreen()),
-        (_) => false,
-      );
     }
   }
 
@@ -6861,7 +6780,7 @@ class AuthRoot extends StatefulWidget {
 }
 
 class _AuthRootState extends State<AuthRoot> {
-  bool _loading = AppConfig.useApi;
+  bool _loading = true;
   AuthUser? _user;
 
   @override
@@ -6871,9 +6790,6 @@ class _AuthRootState extends State<AuthRoot> {
   }
 
   Future<void> _bootstrap() async {
-    if (!AppConfig.useApi) {
-      return;
-    }
     final u = await context.read<AuthRepository>().fetchMe();
     if (!mounted) {
       return;
@@ -6882,10 +6798,22 @@ class _AuthRootState extends State<AuthRoot> {
       _user = u;
       _loading = false;
     });
+    if (u != null) {
+      await _syncStores();
+    }
   }
 
   void _onLoggedIn(AuthUser u) {
     setState(() => _user = u);
+    _syncStores();
+  }
+
+  Future<void> _syncStores() async {
+    try {
+      await context.read<NotificationStore>().refresh();
+      await context.read<SavedPlacesStore>().refresh();
+      await JobStore.instance.refresh();
+    } catch (_) {}
   }
 
   @override
@@ -6902,25 +6830,22 @@ class _AuthRootState extends State<AuthRoot> {
         ),
       );
     }
-    if (AppConfig.useApi && _user == null) {
+    if (_user == null) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.mainDark(),
         home: LoginScreen(onLoggedIn: _onLoggedIn),
       );
     }
-    if (AppConfig.useApi && _user != null) {
-      return AppLogoutScope(
-        logout: () async {
-          await context.read<AuthRepository>().logout();
-          if (mounted) {
-            setState(() => _user = null);
-          }
-        },
-        child: const InfinityApp(home: HomeScreen()),
-      );
-    }
-    return const InfinityApp();
+    return AppLogoutScope(
+      logout: () async {
+        await context.read<AuthRepository>().logout();
+        if (mounted) {
+          setState(() => _user = null);
+        }
+      },
+      child: const InfinityApp(home: HomeScreen()),
+    );
   }
 }
 

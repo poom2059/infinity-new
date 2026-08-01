@@ -1,7 +1,6 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import '../api/infinity_api_client.dart';
 
 /// ที่อยู่ที่บันทึกพร้อมพิกัดบนแผนที่
 class SavedPlace {
@@ -19,15 +18,7 @@ class SavedPlace {
   final double lat;
   final double lng;
 
-  Map<String, dynamic> toJson() => <String, dynamic>{
-        'id': id,
-        'label': label,
-        'detail': detail,
-        'lat': lat,
-        'lng': lng,
-      };
-
-  factory SavedPlace.fromJson(Map<String, dynamic> j) {
+  factory SavedPlace.fromApi(Map<String, dynamic> j) {
     return SavedPlace(
       id: '${j['id']}',
       label: '${j['label'] ?? ''}',
@@ -38,81 +29,42 @@ class SavedPlace {
   }
 }
 
-/// เก็บรายการที่อยู่ที่บันทึก (ปักหมุดบนแผนที่) และบันทึกถาวรด้วย [SharedPreferences]
+/// ซิงก์ที่อยู่ที่บันทึกผ่าน API
 class SavedPlacesStore extends ChangeNotifier {
-  SavedPlacesStore(this._prefs) {
-    _load();
-  }
+  SavedPlacesStore(this._client);
 
-  final SharedPreferences _prefs;
-  static const String _kKey = 'saved_places_v1';
-  static const String _kSeeded = 'saved_places_seeded_v1';
-
+  final InfinityApiClient _client;
   final List<SavedPlace> _items = <SavedPlace>[];
 
   List<SavedPlace> get items => List<SavedPlace>.unmodifiable(_items);
   bool get isEmpty => _items.isEmpty;
 
-  void _load() {
-    final String? raw = _prefs.getString(_kKey);
-    if (raw != null) {
-      try {
-        final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
-        _items
-          ..clear()
-          ..addAll(list.map((dynamic e) => SavedPlace.fromJson(e as Map<String, dynamic>)));
-      } catch (_) {
-        _items.clear();
-      }
-    }
-    if (_prefs.getBool(_kSeeded) != true) {
-      _seed();
-      _prefs.setBool(_kSeeded, true);
-      _persist();
-    }
-  }
-
-  void _seed() {
-    _items.addAll(const <SavedPlace>[
-      SavedPlace(
-        id: 'home-seed',
-        label: 'บ้าน',
-        detail: 'ถนนสุขุมวิท กรุงเทพฯ',
-        lat: 13.7398,
-        lng: 100.5602,
-      ),
-      SavedPlace(
-        id: 'work-seed',
-        label: 'ที่ทำงาน',
-        detail: 'อาคารสำนักงาน สาทร กรุงเทพฯ',
-        lat: 13.7236,
-        lng: 100.5283,
-      ),
-    ]);
+  Future<void> refresh() async {
+    final data = await _client.getJson('/v1/saved-places') as Map<String, dynamic>;
+    final list = data['places'] as List<dynamic>? ?? [];
+    _items
+      ..clear()
+      ..addAll(list.map((e) => SavedPlace.fromApi(e as Map<String, dynamic>)));
+    notifyListeners();
   }
 
   Future<void> add(SavedPlace place) async {
-    _items.add(place);
-    await _persist();
-    notifyListeners();
+    await _client.postJson('/v1/saved-places', {
+      'label': place.label,
+      'detail': place.detail,
+      'lat': place.lat,
+      'lng': place.lng,
+    });
+    await refresh();
   }
 
   Future<void> update(SavedPlace place) async {
-    final int i = _items.indexWhere((SavedPlace e) => e.id == place.id);
-    if (i >= 0) {
-      _items[i] = place;
-      await _persist();
-      notifyListeners();
-    }
+    await remove(place.id);
+    await add(place);
   }
 
   Future<void> remove(String id) async {
-    _items.removeWhere((SavedPlace e) => e.id == id);
-    await _persist();
-    notifyListeners();
-  }
-
-  Future<void> _persist() async {
-    await _prefs.setString(_kKey, jsonEncode(_items.map((SavedPlace e) => e.toJson()).toList()));
+    await _client.deleteJson('/v1/saved-places/$id');
+    await refresh();
   }
 }

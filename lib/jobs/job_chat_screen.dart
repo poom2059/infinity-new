@@ -25,6 +25,7 @@ class _JobChatScreenState extends State<JobChatScreen> {
   void initState() {
     super.initState();
     JobStore.instance.addListener(_onStore);
+    JobStore.instance.loadMessages(widget.jobId);
   }
 
   void _onStore() {
@@ -62,9 +63,10 @@ class _JobChatScreenState extends State<JobChatScreen> {
     return 'สมาชิกสาธิต';
   }
 
-  void _send() {
-    JobStore.instance.sendChat(widget.jobId, _userId(), _userName(), _text.text);
+  Future<void> _send() async {
+    final text = _text.text;
     _text.clear();
+    await JobStore.instance.sendChat(widget.jobId, _userId(), _userName(), text);
   }
 
   @override

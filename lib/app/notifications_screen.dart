@@ -5,8 +5,21 @@ import 'app_theme.dart';
 import '../data/notifications/notification_store.dart';
 
 /// หน้าศูนย์การแจ้งเตือน — แสดงประวัติการแจ้งเตือนทั้งหมด ดูย้อนหลังได้
-class NotificationsScreen extends StatelessWidget {
+class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
+
+  @override
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends State<NotificationsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<NotificationStore>().refresh();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

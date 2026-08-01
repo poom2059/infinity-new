@@ -18,7 +18,7 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Infinity food delivery">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -32,18 +32,27 @@
   <title>infinity_new</title>
   <link rel="manifest" href="manifest.json">
 
-  <!-- Google Maps JavaScript API (สำหรับ google_maps_flutter บนเว็บ) — ภาษาไทย + Places -->
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyATMNRhKOloGg4jbuc3foveoQrt6_wmEwE&language=th&region=TH&libraries=places"></script>
+  <!-- Google Maps JS — key จาก window.__GOOGLE_MAPS_API_KEY หรือ query (inject ตอน build) -->
+  <script>
+    (function () {
+      var key = window.__GOOGLE_MAPS_API_KEY || '';
+      if (!key) {
+        try {
+          var m = document.querySelector('meta[name="google-maps-api-key"]');
+          if (m) key = m.getAttribute('content') || '';
+        } catch (e) {}
+      }
+      if (!key) return;
+      var s = document.createElement('script');
+      s.async = true;
+      s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) +
+        '&language=th&region=TH&libraries=places';
+      document.head.appendChild(s);
+    })();
+  </script>
+  <meta name="google-maps-api-key" content="">
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
-
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

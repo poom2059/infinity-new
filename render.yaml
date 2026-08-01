@@ -1,19 +1,40 @@
 services:
   - type: web
-    name: infinity-app
+    name: infinity-new
     runtime: node
     plan: free
-    region: singapore
-    # รากโปรเจกต์มี package.json ที่ชี้ไป server/src/index.mjs แล้ว
     buildCommand: npm install --omit=dev
     startCommand: npm start
-    healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
         value: "20"
       - key: SERVE_WEB
         value: "true"
-      - key: HOST
-        value: "0.0.0.0"
-      - key: NODE_ENV
-        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: infinity-new-db
+          property: connectionString
+      - key: ADMIN_PHONES
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_FROM_NUMBER
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+      - key: OMISE_SECRET_KEY
+        sync: false
+      - key: OMISE_PUBLIC_KEY
+        sync: false
+      - key: GOOGLE_MAPS_SERVER_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+
+databases:
+  - name: infinity-new-db
+    plan: free
+    databaseName: infinity
+    user: infinity

@@ -1,4 +1,4 @@
-// โมเดลงานจ้าง (ฝั่งแอป — สาธิต ไม่มี API)
+// โมเดลงานจ้าง
 
 /// เพศของผู้รับงานที่ผู้ว่าจ้างต้องการ
 enum JobWorkerGenderPreference {
@@ -27,8 +27,8 @@ enum JobListingStatus {
   /// ผู้โพสเลือกผู้รับงานแล้ว
   assigned,
 
-  /// ปิดงาน (สาธิต)
   closed,
+  pendingPayment,
 }
 
 /// เพศของผู้รับงานที่ต้องการ
@@ -144,5 +144,58 @@ class JobListing {
       }
     }
     return null;
+  }
+
+  factory JobListing.fromApi(Map<String, dynamic> j) {
+    final genderRaw = '${j['worker_gender'] ?? 'any'}';
+    final JobWorkerGenderPreference gender = switch (genderRaw) {
+      'maleOnly' || 'male' => JobWorkerGenderPreference.maleOnly,
+      'femaleOnly' || 'female' => JobWorkerGenderPreference.femaleOnly,
+      _ => JobWorkerGenderPreference.any,
+    };
+    final statusRaw = '${j['status'] ?? 'open'}';
+    final JobListingStatus status = switch (statusRaw) {
+      'assigned' => JobListingStatus.assigned,
+      'closed' => JobListingStatus.closed,
+      'pending_payment' => JobListingStatus.pendingPayment,
+      _ => JobListingStatus.open,
+    };
+    final applicantsRaw = j['applicants'] as List<dynamic>? ?? [];
+    final timeLabel = '${j['work_time_label'] ?? '09:00 – 18:00'}';
+    final parts = timeLabel.split('–');
+    int parseMin(String s) {
+      final t = s.trim().split(':');
+      if (t.length < 2) return 0;
+      return (int.tryParse(t[0]) ?? 0) * 60 + (int.tryParse(t[1]) ?? 0);
+    }
+
+    return JobListing(
+      id: '${j['id']}',
+      posterId: '${j['poster_id']}',
+      posterName: 'ผู้ว่าจ้าง',
+      title: '${j['title']}',
+      profession: '${j['profession']}',
+      description: '${j['description']}',
+      workerGenderPreference: gender,
+      storePhone: '${j['store_phone'] ?? ''}',
+      storeAddress: '${j['store_address'] ?? ''}',
+      ageMin: (j['age_min'] as num?)?.toInt() ?? 18,
+      ageMax: (j['age_max'] as num?)?.toInt() ?? 60,
+      workStartMinutes: parts.isNotEmpty ? parseMin(parts.first) : 9 * 60,
+      workEndMinutes: parts.length > 1 ? parseMin(parts[1]) : 18 * 60,
+      totalBaht: (j['total_baht'] as num?)?.toInt() ?? 0,
+      createdAt: DateTime.tryParse('${j['created_at']}') ?? DateTime.now(),
+      contactPhone: '${j['contact_phone'] ?? ''}',
+      status: status,
+      applicants: applicantsRaw.map((e) {
+        final a = e as Map<String, dynamic>;
+        return JobApplicant(
+          id: '${a['id']}',
+          displayName: '${a['display_name']}',
+          appliedAt: DateTime.tryParse('${a['applied_at']}') ?? DateTime.now(),
+        );
+      }).toList(),
+      chosenApplicantId: j['chosen_applicant_id'] == null ? null : '${j['chosen_applicant_id']}',
+    );
   }
 }

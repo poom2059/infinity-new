@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../config/app_config.dart';
 import 'google_geo_service.dart';
 
 GoogleGeoService createService() => GoogleGeoServiceIo();
@@ -9,13 +10,13 @@ GoogleGeoService createService() => GoogleGeoServiceIo();
 /// บริการแผนที่ของ Google สำหรับ "มือถือ/เดสก์ท็อป" — เรียก Web Service REST
 ///
 /// บนมือถือไม่ติดปัญหา CORS จึงเรียก endpoint ของ Google ได้โดยตรง
-/// ต้องเปิดใช้ Places API + Geocoding API และอนุญาตให้ key ใช้กับแอปได้
+/// คีย์จาก `--dart-define=GOOGLE_MAPS_BROWSER_KEY=...`
 class GoogleGeoServiceIo implements GoogleGeoService {
-  static const String _apiKey = 'AIzaSyATMNRhKOloGg4jbuc3foveoQrt6_wmEwE';
+  static String get _apiKey => AppConfig.googleMapsBrowserKey;
 
   @override
   Future<List<GeoSuggestion>> autocomplete(String input) async {
-    if (input.trim().isEmpty) {
+    if (input.trim().isEmpty || _apiKey.isEmpty) {
       return const <GeoSuggestion>[];
     }
     try {
@@ -47,6 +48,7 @@ class GoogleGeoServiceIo implements GoogleGeoService {
 
   @override
   Future<GeoResult?> geocodePlaceId(String placeId) async {
+    if (_apiKey.isEmpty) return null;
     try {
       final Uri url = Uri.parse(
         'https://maps.googleapis.com/maps/api/geocode/json'
@@ -76,6 +78,7 @@ class GoogleGeoServiceIo implements GoogleGeoService {
 
   @override
   Future<String?> reverseGeocode(double lat, double lng) async {
+    if (_apiKey.isEmpty) return null;
     try {
       final Uri url = Uri.parse(
         'https://maps.googleapis.com/maps/api/geocode/json'

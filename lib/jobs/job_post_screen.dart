@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../app/app_theme.dart';
+import '../app/payment_checkout_sheet.dart';
 import '../data/auth/auth_user.dart';
+import '../data/payments/payment_repository.dart';
 import 'job_content_policy.dart';
 import 'job_models.dart';
 import 'job_store.dart';
 
 const Color _kRed = Color(0xFFE3001B);
 
-/// โพสงานจ้าง — เก็บมัดจำ 50% (สาธิต)
+/// โพสงานจ้าง — มัดจำ 50% ผ่าน Omise
 class JobPostScreen extends StatefulWidget {
   const JobPostScreen({super.key, required this.accountUser});
 
@@ -158,38 +161,58 @@ class _JobPostScreenState extends State<JobPostScreen> {
     }
 
     setState(() => _busy = true);
-    await Future<void>.delayed(const Duration(milliseconds: 200));
-    final JobListing listing = JobListing(
-      id: 'job_${DateTime.now().microsecondsSinceEpoch}',
-      posterId: _posterId(),
-      posterName: _posterName(),
-      title: title,
-      profession: profession,
-      description: description,
-      workerGenderPreference: _genderPref,
-      storePhone: storePhone,
-      storeAddress: storeAddress,
-      ageMin: ageMin,
-      ageMax: ageMax,
-      workStartMinutes: _minutes(_start),
-      workEndMinutes: _minutes(_end),
-      totalBaht: total,
-      createdAt: DateTime.now(),
-      genderPreference: _gender,
-      contactPhone: contactPhone,
-    );
-    JobStore.instance.addListing(listing);
-    if (!mounted) {
-      return;
+    try {
+      final JobListing listing = JobListing(
+        id: 'job_${DateTime.now().microsecondsSinceEpoch}',
+        posterId: _posterId(),
+        posterName: _posterName(),
+        title: title,
+        profession: profession,
+        description: description,
+        workerGenderPreference: _genderPref,
+        storePhone: storePhone,
+        storeAddress: storeAddress,
+        ageMin: ageMin,
+        ageMax: ageMax,
+        workStartMinutes: _minutes(_start),
+        workEndMinutes: _minutes(_end),
+        totalBaht: total,
+        createdAt: DateTime.now(),
+        genderPreference: _gender,
+        contactPhone: contactPhone,
+      );
+      final created = await JobStore.instance.addListing(listing);
+      if (!mounted) return;
+      if (created.escrowIntentId != null && created.escrowIntentId!.isNotEmpty) {
+        final pay = context.read<PaymentRepository>();
+        final intent = await pay.fetchIntent(created.escrowIntentId!);
+        if (!mounted) return;
+        final paid = await completePaymentCheckout(context, intent);
+        if (paid == null || !paid.isSucceeded) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('ยังไม่ได้ชำระมัดจำ — งานยังไม่เผยแพร่')),
+            );
+          }
+          return;
+        }
+        await JobStore.instance.publishAfterEscrow(created.jobId);
+      }
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('โพสงานแล้ว — มัดจำ ฿$half'),
+          backgroundColor: _kRed,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ไม่สำเร็จ: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-    setState(() => _busy = false);
-    Navigator.of(context).pop(true);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('โพสงานแล้ว — เก็บมัดจำ ฿$half (สาธิต)'),
-        backgroundColor: _kRed,
-      ),
-    );
   }
 
   void _toast(String m) {

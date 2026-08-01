@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import '../../config/app_config.dart';
 import '../../domain/food_ordering.dart';
 import '../api/infinity_api_client.dart';
 
@@ -10,23 +9,12 @@ class CatalogRepository {
   final InfinityApiClient _client;
 
   Future<List<RegisteredMerchant>> fetchMerchants() async {
-    if (!AppConfig.useApi) {
-      return List<RegisteredMerchant>.from(kSeedMerchants);
-    }
     final data = await _client.getJson('/v1/merchants') as Map<String, dynamic>;
     final list = data['merchants'] as List<dynamic>? ?? [];
     return list.map((e) => _merchantFromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<List<FoodMenuItem>> fetchMenu(String slug) async {
-    if (!AppConfig.useApi) {
-      for (final x in kSeedMerchants) {
-        if (x.slug == slug || x.name == slug) {
-          return menuForMerchant(x);
-        }
-      }
-      return menuForMerchant(kSeedMerchants.first);
-    }
     final data = await _client.getJson('/v1/merchants/${Uri.encodeComponent(slug)}/menu') as Map<String, dynamic>;
     final items = data['items'] as List<dynamic>? ?? [];
     return items.map((e) => _itemFromJson(e as Map<String, dynamic>)).toList();
@@ -64,6 +52,7 @@ Map<String, dynamic> placedOrderToJson(PlacedOrder o) {
     'total_baht': o.totalBaht,
     'pickup_mode': o.pickupMode,
     'status': o.statusLabel,
+    if (o.paymentIntentId != null) 'payment_intent_id': o.paymentIntentId,
     'lines': o.lines
         .map(
           (l) => {

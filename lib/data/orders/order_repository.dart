@@ -1,4 +1,3 @@
-import '../../config/app_config.dart';
 import '../../domain/food_ordering.dart';
 import '../api/infinity_api_client.dart';
 import '../catalog/catalog_repository.dart';
@@ -9,28 +8,18 @@ class OrderRepository {
   final InfinityApiClient _client;
 
   Future<List<PlacedOrder>> listOrders(List<RegisteredMerchant> merchantLookup) async {
-    if (!AppConfig.useApi) {
-      final fn = OrderStoreBridge.localOrders;
-      return fn != null ? fn() : <PlacedOrder>[];
-    }
     final data = await _client.getJson('/v1/orders') as Map<String, dynamic>;
     final list = data['orders'] as List<dynamic>? ?? [];
     return list.map((e) => _parse(e as Map<String, dynamic>, merchantLookup)).toList();
   }
 
   Future<PlacedOrder> createOrder(PlacedOrder draft, List<RegisteredMerchant> merchantLookup) async {
-    if (!AppConfig.useApi) {
-      return draft;
-    }
     final payload = placedOrderToJson(draft);
     final res = await _client.postJson('/v1/orders', payload) as Map<String, dynamic>;
     return _parse(res, merchantLookup);
   }
 
   Future<void> markComplete(String orderId) async {
-    if (!AppConfig.useApi) {
-      return;
-    }
     await _client.postJson('/v1/orders/${Uri.encodeComponent(orderId)}/complete', {});
   }
 
@@ -43,7 +32,19 @@ class OrderRepository {
         break;
       }
     }
-    m ??= kSeedMerchants.isNotEmpty ? kSeedMerchants.first : merchants.first;
+    m ??= merchants.isNotEmpty
+        ? merchants.first
+        : RegisteredMerchant(
+            slug: slug,
+            name: slug.isEmpty ? 'ร้านค้า' : slug,
+            category: 'food',
+            etaMinutes: 30,
+            rating: 4.5,
+            usageCount: 0,
+            imageUrl: '',
+            distanceKm: 2,
+            deliveryFee: 0,
+          );
     return placedOrderFromJson(j, m);
   }
 }

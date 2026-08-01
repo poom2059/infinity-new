@@ -1,27 +1,25 @@
-/// ค่าคอนฟิกรันไทม์
+/// ค่าคอนฟิกรันไทม์สำหรับ production
 ///
-/// ตัวอย่าง local:
-/// `--dart-define=USE_API=true --dart-define=API_BASE=http://localhost:8787`
-///
-/// ตัวอย่าง Cloudways (API + เว็บโดเมนเดียวกัน):
-/// `--dart-define=USE_API=true --dart-define=API_BASE=`
-/// หรือใส่ URL เต็ม เช่น `https://phpstack-xxxxx.cloudwaysapps.com`
+/// `--dart-define=USE_API=true --dart-define=API_BASE=.`
+/// `--dart-define=OMISE_PUBLIC_KEY=pkey_test_xxx`
+/// `--dart-define=GOOGLE_MAPS_BROWSER_KEY=...`
 class AppConfig {
   AppConfig._();
 
   static final AppConfig instance = AppConfig._();
 
-  static const bool useApi = bool.fromEnvironment('USE_API', defaultValue: false);
+  /// Production default: ต้องใช้ API เสมอ
+  static const bool useApi = bool.fromEnvironment('USE_API', defaultValue: true);
 
   static const String apiBaseFromEnv = String.fromEnvironment(
     'API_BASE',
-    defaultValue: 'http://localhost:8787',
+    defaultValue: '',
   );
 
-  /// ว่างหรือ `.` = ใช้ same-origin (เหมาะกับ Cloudways ที่เสิร์ฟ API+เว็บโดเมนเดียว)
+  /// ว่างหรือ `.` = same-origin
   String get apiBaseUrl {
     var s = apiBaseFromEnv.trim();
-    if (s == '.' || s.toLowerCase() == 'same-origin') {
+    if (s.isEmpty || s == '.' || s.toLowerCase() == 'same-origin') {
       return '';
     }
     if (s.endsWith('/')) {
@@ -30,9 +28,18 @@ class AppConfig {
     return s;
   }
 
-  /// โทเคน FCM สาธิต (แทนที่ด้วย Firebase เมื่อเชื่อมจริง)
-  static const String fcmDemoToken = String.fromEnvironment(
-    'FCM_DEMO_TOKEN',
-    defaultValue: 'demo-fcm-token',
+  static const String omisePublicKey = String.fromEnvironment(
+    'OMISE_PUBLIC_KEY',
+    defaultValue: '',
+  );
+
+  static const String googleMapsBrowserKey = String.fromEnvironment(
+    'GOOGLE_MAPS_BROWSER_KEY',
+    defaultValue: '',
+  );
+
+  static const String googleServerClientId = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
+    defaultValue: '',
   );
 }

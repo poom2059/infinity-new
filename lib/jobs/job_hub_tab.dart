@@ -24,6 +24,7 @@ class _JobHubTabState extends State<JobHubTab> {
   void initState() {
     super.initState();
     JobStore.instance.addListener(_onStore);
+    JobStore.instance.refresh();
   }
 
   void _onStore() {
@@ -185,6 +186,11 @@ class _JobHubTabState extends State<JobHubTab> {
         label = 'ปิด';
         bg = Color(0xFFECEEF2);
         fg = AppColors.textMuted;
+        break;
+      case JobListingStatus.pendingPayment:
+        label = 'รอชำระมัดจำ';
+        bg = const Color(0xFFFFEBEE);
+        fg = const Color(0xFFB71C1C);
         break;
     }
     return Container(

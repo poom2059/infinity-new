@@ -19,24 +19,36 @@ class AuthRepository {
       {'phone': phone, 'code': code},
       auth: false,
     ) as Map<String, dynamic>;
-    final token = data['token'] as String?;
-    if (token == null || token.isEmpty) {
-      throw ApiException('ไม่พบโทเค็นเข้าสู่ระบบ');
-    }
-    await _session.setToken(token);
-    return AuthUser.fromJson(data['user'] as Map<String, dynamic>);
+    return _persist(data);
   }
 
-  /// ล็อกอินผ่านผู้ให้บริการภายนอก (google / facebook / line)
-  ///
-  /// ส่ง provider ไปยังเซิร์ฟเวอร์เพื่อแลกโทเค็น โดยฝั่งเซิร์ฟเวอร์เป็นผู้ทำ
-  /// OAuth จริงกับผู้ให้บริการแล้วคืน `token` + `user` กลับมา
-  Future<AuthUser> loginWithSocial(String provider) async {
+  Future<AuthUser> loginWithFirebaseIdToken(String idToken) async {
     final data = await _client.postJson(
-      '/v1/auth/social',
-      {'provider': provider},
+      '/v1/auth/firebase',
+      {'id_token': idToken},
       auth: false,
     ) as Map<String, dynamic>;
+    return _persist(data);
+  }
+
+  Future<AuthUser> loginWithSocial(
+    String provider, {
+    String? idToken,
+    String? accessToken,
+  }) async {
+    final data = await _client.postJson(
+      '/v1/auth/social',
+      {
+        'provider': provider,
+        if (idToken != null) 'id_token': idToken,
+        if (accessToken != null) 'access_token': accessToken,
+      },
+      auth: false,
+    ) as Map<String, dynamic>;
+    return _persist(data);
+  }
+
+  Future<AuthUser> _persist(Map<String, dynamic> data) async {
     final token = data['token'] as String?;
     if (token == null || token.isEmpty) {
       throw ApiException('ไม่พบโทเค็นเข้าสู่ระบบ');

@@ -1,60 +1,57 @@
-# เทส Login + API จริงบน Render
+# Deploy production บน Render
 
-โปรเจกต์นี้พร้อม deploy เป็น **เว็บ + API โดเมนเดียวกัน** บน Render (ฟรี)
+โดเมนปัจจุบัน: `https://infinity-new.onrender.com`
 
 ## สิ่งที่ได้
-- URL เดียว เช่น `https://infinity-app-xxxx.onrender.com`
-- หน้า Flutter Web + `/v1/auth/...` API
-- ล็อกอิน OTP: ใส่เบอร์ แล้วใส่รหัส **6 หลักใดก็ได้**
-- แอดมินทดสอบ: `0810000000` หรือ `0888888888`
+- Flutter Web + Express API โดเมนเดียวกัน
+- OTP จริงผ่าน **Twilio SMS** หรือ **Firebase Phone Auth** (เมื่อตั้งค่า)
+- ชำระเงิน **Omise PromptPay**
+- ฐานข้อมูล **Postgres** (แนะนำ) หรือ SQLite ชั่วคราวบน disk ฟรี
 
-## ขั้นตอน (ครั้งแรก)
+## Environment บน Render (Web Service)
 
-### 1) โค้ดอยู่บน GitHub แล้ว
-Repo: https://github.com/poom2059/infinity-new
+| ตัวแปร | ความหมาย |
+|--------|----------|
+| `SERVE_WEB` | `true` |
+| `NODE_VERSION` | `20` |
+| `DATABASE_URL` | connection string ของ Render Postgres |
+| `ADMIN_PHONES` | เบอร์แอดมินคั่นด้วยจุลภาค เช่น `0810000000,0888888888` |
+| `CORS_ORIGIN` | `https://infinity-new.onrender.com` |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | ส่ง OTP SMS |
+| `OTP_LOG_CODE` | `true` เฉพาะ staging (log รหัสใน server log เมื่อยังไม่มี Twilio) |
+| `FIREBASE_SERVICE_ACCOUNT` | JSON service account ทั้งก้อน (verify Firebase idToken + FCM) |
+| `OMISE_SECRET_KEY` / `OMISE_PUBLIC_KEY` | คีย์ Omise (เริ่มด้วย test ได้) |
+| `OMISE_ALLOW_SIMULATE` | `true` เฉพาะ staging เมื่อยังไม่มี Omise |
+| `GOOGLE_MAPS_SERVER_KEY` | geocode/places ฝั่งเซิร์ฟเวอร์ |
 
-ต้องมีโฟลเดอร์ `server/public/` (Flutter ที่ build แล้วแบบ `USE_API=true` + `API_BASE=.`)
+**อย่า**เปิด `OTP_LOG_CODE` หรือ `OMISE_ALLOW_SIMULATE` บน production จริง
 
-อัปเดต public จากเครื่อง:
+## Build Flutter เข้า `server/public`
 
 ```powershell
+$env:GOOGLE_MAPS_BROWSER_KEY = 'YOUR_BROWSER_KEY'   # optional
 .\deploy\render\build-for-render.ps1
-git add -A
-git commit -m "Build web for Render API login test"
+git add server/public
+git commit -m "Rebuild web for Render production"
 git push
 ```
 
-### 2) สร้างบริการบน Render
-1. เปิด https://dashboard.render.com แล้ว Sign up / Login (ใช้ GitHub ได้)
-2. **New +** → **Blueprint**  
-   หรือ **New +** → **Web Service** แล้วเลือก repo `infinity-new`
-3. ถ้าใช้ Web Service เอง ตั้งค่า:
-   - **Root Directory:** ว่างไว้
-   - **Runtime:** Node
-   - **Build Command:** `npm install --omit=dev`
-   - **Start Command:** `npm start`
-   - **Instance type:** Free
-4. Environment:
-   - `SERVE_WEB` = `true`
-   - `NODE_VERSION` = `20`
-5. Deploy รอจนสถานะ **Live**
+สคริปต์จะ build ด้วย `USE_API=true` และ `API_BASE=.` แล้ว copy ไป `server/public/`
 
-รากโปรเจกต์มี `package.json` ที่ชี้ไป `server/src/index.mjs` แล้ว จึงรัน `npm install` / `npm start`
-จากรากได้เลย ไม่ต้องตั้ง Root Directory
+ถ้ามี Firebase ในแอป เพิ่ม dart-define ในสคริปต์/CI:
+`--dart-define=FIREBASE_API_KEY=... --dart-define=FIREBASE_APP_ID=... --dart-define=FIREBASE_PROJECT_ID=...` ฯลฯ
 
-### 3) เทส
-1. เปิด URL ที่ Render ให้
-2. ตรวจ `https://YOUR-APP.onrender.com/health` ควรได้ `{"ok":true,...}`
-3. ในแอป: ขอ OTP → ใส่รหัส 6 หลักใดก็ได้ → เข้าสู่ระบบ
+## Postgres
+1. Render Dashboard → **New +** → **PostgreSQL** (Free/Starter)
+2. Copy **Internal Database URL** ไปใส่ `DATABASE_URL` ของ Web Service
+3. Redeploy — สคีมาจะ migrate อัตโนมัติตอนบูต
+
+## เทสหลัง deploy
+1. `https://infinity-new.onrender.com/health` → `{"ok":true,...}`
+2. ขอ OTP → ต้องได้รับ SMS จริง (หรือดู log ถ้า `OTP_LOG_CODE=true` บน staging)
+3. เติมวอเลต / สั่งอาหารด้วย Omise test key
+4. โพสงาน + มัดจำ 50%
 
 ## หมายเหตุแผนฟรี
-- ถ้าไม่ใช้สักพัก บริการจะ **sleep** — เปิดครั้งถัดไปอาจรอ 30–60 วินาที
-- ไฟล์ SQLite **ไม่ถาวร** หลัง redeploy ข้อมูลอาจหาย (พอสำหรับเทส)
-- อย่าใช้เป็น production จริงโดยไม่มี Postgres / disk
-
-## บัญชีทดสอบ
-| เบอร์ | บทบาท |
-|-------|--------|
-| 0810000000 | admin |
-| 0888888888 | admin |
-| เบอร์อื่น | customer (สร้างอัตโนมัติตอน verify OTP) |
+- บริการอาจ sleep หลังไม่ใช้งาน — cold start 30–60 วินาที
+- ถ้าไม่มี `DATABASE_URL` ข้อมูล SQLite จะหายตอน redeploy

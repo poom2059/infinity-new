@@ -6,8 +6,21 @@ import 'map_picker_screen.dart';
 import '../data/places/saved_places_store.dart';
 
 /// หน้าจัดการที่อยู่ที่บันทึก — ปักหมุดบนแผนที่ Google Maps
-class SavedPlacesScreen extends StatelessWidget {
+class SavedPlacesScreen extends StatefulWidget {
   const SavedPlacesScreen({super.key});
+
+  @override
+  State<SavedPlacesScreen> createState() => _SavedPlacesScreenState();
+}
+
+class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<SavedPlacesStore>().refresh();
+    });
+  }
 
   Future<void> _addPlace(BuildContext context) async {
     final SavedPlace? place = await Navigator.of(context).push<SavedPlace>(

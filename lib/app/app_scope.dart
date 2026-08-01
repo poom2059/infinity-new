@@ -7,7 +7,7 @@ class AppScope {
   AppScope._();
 
   static OrderRepository? orderRepository;
-  static List<RegisteredMerchant> merchantsForOrders = kSeedMerchants;
+  static List<RegisteredMerchant> merchantsForOrders = <RegisteredMerchant>[];
 
   static bool get ordersRemote => AppConfig.useApi && orderRepository != null;
 }
