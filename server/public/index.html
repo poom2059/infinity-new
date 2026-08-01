@@ -1,19 +1,6 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="/">
 
   <meta charset="UTF-8">
@@ -32,7 +19,22 @@
   <title>infinity_new</title>
   <link rel="manifest" href="manifest.json">
 
-  <!-- Google Maps JS — key จาก window.__GOOGLE_MAPS_API_KEY หรือ query (inject ตอน build) -->
+  <!-- ล้าง service worker/แคชเก่า ไม่ให้เสิร์ฟบันเดิลเวอร์ชันก่อนหน้า -->
+  <script>
+    (function () {
+      if (!('serviceWorker' in navigator)) return;
+      navigator.serviceWorker.getRegistrations().then(function (regs) {
+        regs.forEach(function (reg) { reg.unregister(); });
+      }).catch(function () {});
+      if (window.caches && caches.keys) {
+        caches.keys().then(function (keys) {
+          keys.forEach(function (key) { caches.delete(key); });
+        }).catch(function () {});
+      }
+    })();
+  </script>
+
+  <!-- Google Maps JS — key จาก window.__GOOGLE_MAPS_API_KEY หรือ meta (inject ตอน build) -->
   <script>
     (function () {
       var key = window.__GOOGLE_MAPS_API_KEY || '';

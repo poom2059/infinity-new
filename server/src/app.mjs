@@ -467,6 +467,7 @@ export async function createApp() {
       app.use((req, res, next) => {
         if (req.method !== 'GET' && req.method !== 'HEAD') return next();
         if (req.path.startsWith('/v1/') || req.path === '/health') return next();
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.sendFile(path.join(webRoot, 'index.html'), (err) => {
           if (err) next();
         });

@@ -37,7 +37,8 @@ foreach ($k in @(
 }
 
 Write-Host "==> Building Flutter web for Render (USE_API=true, API_BASE=.)"
-& $flutter build web --release @defines
+# pwa-strategy=none: ไม่สร้าง service worker ใหม่ ใช้ tombstone ใน web/ แทน
+& $flutter build web --release --pwa-strategy=none @defines
 if ($LASTEXITCODE -ne 0) { throw "flutter build failed" }
 
 $webOut = Join-Path $Root 'build\web'
@@ -45,6 +46,12 @@ $publicDir = Join-Path $Root 'server\public'
 if (Test-Path $publicDir) { Remove-Item $publicDir -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $publicDir | Out-Null
 Copy-Item -Path (Join-Path $webOut '*') -Destination $publicDir -Recurse -Force
+
+# flutter build เขียน flutter_service_worker.js ว่างทับ ต้องเอา tombstone จาก web/ ใส่กลับ
+$swSource = Join-Path $Root 'web\flutter_service_worker.js'
+if (Test-Path $swSource) {
+  Copy-Item -Path $swSource -Destination (Join-Path $publicDir 'flutter_service_worker.js') -Force
+}
 
 if ($GoogleMapsBrowserKey) {
   $indexPath = Join-Path $publicDir 'index.html'
