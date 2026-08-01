@@ -43,13 +43,8 @@ async function sendSms(phone, message) {
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_FROM_NUMBER;
   if (!sid || !token || !from) {
-    if (process.env.OTP_LOG_CODE === 'true') {
-      console.log(`[otp] SMS provider not configured. Message for ${phone}: ${message}`);
-      return { ok: true, logged: true };
-    }
-    const err = new Error('ยังไม่ได้ตั้งค่าบริการส่ง SMS (TWILIO_*) หรือ Firebase');
-    err.status = 503;
-    throw err;
+    console.log(`[otp] SMS provider not configured. Message for ${phone}: ${message}`);
+    return { ok: true, logged: true, sms_sent: false };
   }
   const to = phone.startsWith('0') ? `+66${phone.slice(1)}` : phone;
   const auth = Buffer.from(`${sid}:${token}`).toString('base64');
@@ -68,7 +63,18 @@ async function sendSms(phone, message) {
     err.status = 502;
     throw err;
   }
-  return { ok: true };
+  return { ok: true, sms_sent: true };
+}
+
+function allowDevOtp() {
+  // เปิดเมื่อยังไม่มี Twilio — ให้ทดสอบล็อกอินได้จนกว่าจะตั้ง SMS จริง
+  // ปิดด้วย ALLOW_DEV_OTP=false เมื่อขึ้น production มี Twilio แล้ว
+  if (process.env.ALLOW_DEV_OTP === 'false') return false;
+  if (process.env.ALLOW_DEV_OTP === 'true') return true;
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_FROM_NUMBER;
+  return !(sid && token && from);
 }
 
 export async function requestOtp(phoneRaw) {
@@ -86,8 +92,18 @@ export async function requestOtp(phoneRaw) {
     'INSERT INTO otp_challenges (id, phone, code_hash, expires_at, attempts) VALUES (?,?,?,?,0)',
     [id, phone, hashCode(code), expires],
   );
-  await sendSms(phone, `รหัสยืนยัน Infinity ของคุณคือ ${code} (หมดอายุใน 10 นาที)`);
-  return { ok: true, challenge_id: id, expires_at: expires };
+  const sms = await sendSms(phone, `รหัสยืนยัน Infinity ของคุณคือ ${code} (หมดอายุใน 10 นาที)`);
+  const out = {
+    ok: true,
+    challenge_id: id,
+    expires_at: expires,
+    sms_sent: sms.sms_sent === true,
+  };
+  if (allowDevOtp() && !out.sms_sent) {
+    out.dev_code = code;
+    out.dev_hint = 'ยังไม่ได้ตั้ง Twilio — ใช้รหัสนี้ชั่วคราว';
+  }
+  return out;
 }
 
 export async function verifyOtp(phoneRaw, code) {
@@ -169,21 +185,35 @@ export async function loginWithSocial({ provider, idToken, accessToken }) {
   let providerUid = null;
 
   if (p === 'google') {
-    if (!idToken) {
-      const err = new Error('ต้องส่ง id_token ของ Google');
+    if (idToken) {
+      const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+      if (!res.ok) {
+        const err = new Error('ยืนยัน Google token ไม่สำเร็จ');
+        err.status = 401;
+        throw err;
+      }
+      const data = await res.json();
+      email = data.email || null;
+      name = data.name || name;
+      providerUid = data.sub;
+    } else if (accessToken) {
+      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) {
+        const err = new Error('ยืนยัน Google access token ไม่สำเร็จ');
+        err.status = 401;
+        throw err;
+      }
+      const data = await res.json();
+      email = data.email || null;
+      name = data.name || name;
+      providerUid = data.sub;
+    } else {
+      const err = new Error('ต้องส่ง id_token หรือ access_token ของ Google');
       err.status = 400;
       throw err;
     }
-    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
-    if (!res.ok) {
-      const err = new Error('ยืนยัน Google token ไม่สำเร็จ');
-      err.status = 401;
-      throw err;
-    }
-    const data = await res.json();
-    email = data.email || null;
-    name = data.name || name;
-    providerUid = data.sub;
   } else if (p === 'line') {
     if (!idToken && !accessToken) {
       const err = new Error('ต้องส่ง id_token หรือ access_token ของ LINE');

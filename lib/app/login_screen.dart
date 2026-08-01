@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'app_theme.dart';
 import 'social_login_buttons.dart';
 import 'ui_strings_th.dart';
+import '../data/api/api_exception.dart';
 import '../data/auth/auth_repository.dart';
 import '../data/auth/auth_user.dart';
 import '../data/push/push_registration_repository.dart';
@@ -53,19 +54,35 @@ class _LoginScreenState extends State<LoginScreen> {
     });
     try {
       final phone = _phone.text.trim();
+      if (phone.isEmpty) {
+        throw ApiException('กรุณากรอกเบอร์โทร');
+      }
       if (PhoneAuthService.instance.firebaseReady) {
         await PhoneAuthService.instance.requestOtp(PhoneAuthService.toE164(phone));
         _useFirebase = true;
+        if (!mounted) return;
+        setState(() => _otpSent = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ส่งรหัสยืนยันไปยังเบอร์ของคุณแล้ว')),
+        );
       } else {
         final auth = context.read<AuthRepository>();
-        await auth.requestOtp(phone);
+        final result = await auth.requestOtp(phone);
         _useFirebase = false;
+        if (!mounted) return;
+        setState(() => _otpSent = true);
+        final devCode = result['dev_code']?.toString();
+        if (devCode != null && devCode.isNotEmpty) {
+          _code.text = devCode;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('รหัสชั่วคราว (ยังไม่มี SMS): $devCode')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('ส่งรหัสยืนยันไปยังเบอร์ของคุณแล้ว')),
+          );
+        }
       }
-      if (!mounted) return;
-      setState(() => _otpSent = true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ส่งรหัสยืนยันไปยังเบอร์ของคุณแล้ว')),
-      );
     } catch (e) {
       if (mounted) setState(() => _error = '$e');
     } finally {

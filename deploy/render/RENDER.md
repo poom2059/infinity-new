@@ -18,13 +18,13 @@
 | `ADMIN_PHONES` | เบอร์แอดมินคั่นด้วยจุลภาค เช่น `0810000000,0888888888` |
 | `CORS_ORIGIN` | `https://infinity-new.onrender.com` |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | ส่ง OTP SMS |
-| `OTP_LOG_CODE` | `true` เฉพาะ staging (log รหัสใน server log เมื่อยังไม่มี Twilio) |
+| `ALLOW_DEV_OTP` | ถ้ายังไม่มี Twilio: ไม่ต้องตั้ง (ระบบคืน `dev_code` ให้ทดสอบ) — ตั้ง `false` เมื่อมี SMS จริงแล้ว |
 | `FIREBASE_SERVICE_ACCOUNT` | JSON service account ทั้งก้อน (verify Firebase idToken + FCM) |
 | `OMISE_SECRET_KEY` / `OMISE_PUBLIC_KEY` | คีย์ Omise (เริ่มด้วย test ได้) |
 | `OMISE_ALLOW_SIMULATE` | `true` เฉพาะ staging เมื่อยังไม่มี Omise |
 | `GOOGLE_MAPS_SERVER_KEY` | geocode/places ฝั่งเซิร์ฟเวอร์ |
 
-**อย่า**เปิด `OTP_LOG_CODE` หรือ `OMISE_ALLOW_SIMULATE` บน production จริง
+**อย่า**เปิด `ALLOW_DEV_OTP` หรือ `OMISE_ALLOW_SIMULATE` บน production เมื่อมี Twilio/Omise แล้ว — ตั้ง `ALLOW_DEV_OTP=false`
 
 ## Build Flutter เข้า `server/public`
 

@@ -42,4 +42,10 @@ class AppConfig {
     'GOOGLE_SERVER_CLIENT_ID',
     defaultValue: '',
   );
+
+  /// OAuth 2.0 Web Client ID (สำหรับ Google Sign-In บนเว็บ)
+  static const String googleWebClientId = String.fromEnvironment(
+    'GOOGLE_WEB_CLIENT_ID',
+    defaultValue: '',
+  );
 }

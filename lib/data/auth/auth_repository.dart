@@ -9,8 +9,9 @@ class AuthRepository {
   final InfinityApiClient _client;
   final AuthSession _session;
 
-  Future<void> requestOtp(String phone) async {
-    await _client.postJson('/v1/auth/request-otp', {'phone': phone}, auth: false);
+  Future<Map<String, dynamic>> requestOtp(String phone) async {
+    final data = await _client.postJson('/v1/auth/request-otp', {'phone': phone}, auth: false);
+    return Map<String, dynamic>.from(data as Map);
   }
 
   Future<AuthUser> verifyOtp({required String phone, required String code}) async {

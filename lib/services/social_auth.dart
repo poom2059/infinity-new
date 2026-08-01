@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../app/social_login_buttons.dart';
@@ -16,29 +17,34 @@ class SocialAuth {
   static Future<SocialAuthCredential> signIn(SocialProvider provider) async {
     switch (provider) {
       case SocialProvider.google:
+        final webClientId = AppConfig.googleWebClientId;
+        final serverClientId = AppConfig.googleServerClientId;
         final GoogleSignIn google = GoogleSignIn(
-          scopes: const <String>['email', 'profile'],
-          serverClientId: AppConfig.googleServerClientId.isEmpty
-              ? null
-              : AppConfig.googleServerClientId,
+          scopes: const <String>['email', 'profile', 'openid'],
+          clientId: kIsWeb && webClientId.isNotEmpty ? webClientId : null,
+          serverClientId: serverClientId.isEmpty ? null : serverClientId,
         );
         final account = await google.signIn();
         if (account == null) {
           throw ApiException('ยกเลิกการเข้าสู่ระบบ Google');
         }
         final auth = await account.authentication;
-        if ((auth.idToken == null || auth.idToken!.isEmpty) &&
-            (auth.accessToken == null || auth.accessToken!.isEmpty)) {
-          throw ApiException('ไม่ได้รับโทเค็นจาก Google');
+        final idToken = auth.idToken;
+        final accessToken = auth.accessToken;
+        if ((idToken == null || idToken.isEmpty) &&
+            (accessToken == null || accessToken.isEmpty)) {
+          throw ApiException(
+            'ไม่ได้รับโทเค็นจาก Google — ตั้งค่า GOOGLE_WEB_CLIENT_ID (OAuth Web Client) ใน dart-define',
+          );
         }
         return SocialAuthCredential(
-          idToken: auth.idToken,
-          accessToken: auth.accessToken,
+          idToken: idToken,
+          accessToken: accessToken,
         );
       case SocialProvider.facebook:
       case SocialProvider.line:
         throw ApiException(
-          'กรุณาตั้งค่า ${provider.label} OAuth บนเซิร์ฟเวอร์แล้วใช้ SDK ของผู้ให้บริการในแอป',
+          'ยังไม่ได้ตั้งค่า ${provider.label} — ใช้เบอร์โทรหรือ Google ก่อน',
         );
     }
   }
