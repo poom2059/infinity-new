@@ -48,6 +48,7 @@ app.*.map.json
 **/android/local.properties
 
 # Cloudways / Node API
+/node_modules/
 /server/node_modules/
 /server/infinity.sqlite
 /server/data/*.sqlite

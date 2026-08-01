@@ -4,9 +4,9 @@ services:
     runtime: node
     plan: free
     region: singapore
-    # ใช้ cd server ในคำสั่ง เพื่อให้ทำงานแม้ Root Directory ไม่ถูกตั้ง
-    buildCommand: cd server && npm install --omit=dev
-    startCommand: cd server && npm start
+    # รากโปรเจกต์มี package.json ที่ชี้ไป server/src/index.mjs แล้ว
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION

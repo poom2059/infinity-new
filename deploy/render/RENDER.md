@@ -29,23 +29,18 @@ git push
 2. **New +** → **Blueprint**  
    หรือ **New +** → **Web Service** แล้วเลือก repo `infinity-new`
 3. ถ้าใช้ Web Service เอง ตั้งค่า:
-   - **Root Directory:** ว่างไว้ (หรือ `server`)
+   - **Root Directory:** ว่างไว้
    - **Runtime:** Node
-   - **Build Command:** `cd server && npm install --omit=dev`
-   - **Start Command:** `cd server && npm start`
+   - **Build Command:** `npm install --omit=dev`
+   - **Start Command:** `npm start`
    - **Instance type:** Free
 4. Environment:
    - `SERVE_WEB` = `true`
    - `NODE_VERSION` = `20`
 5. Deploy รอจนสถานะ **Live**
 
-### ถ้า Error หา package.json ไม่เจอ
-ไปที่บริการ → **Settings** แก้เป็น:
-
-- Build Command = `cd server && npm install --omit=dev`
-- Start Command = `cd server && npm start`
-
-แล้วกด **Manual Deploy** → **Deploy latest commit**
+รากโปรเจกต์มี `package.json` ที่ชี้ไป `server/src/index.mjs` แล้ว จึงรัน `npm install` / `npm start`
+จากรากได้เลย ไม่ต้องตั้ง Root Directory
 
 ### 3) เทส
 1. เปิด URL ที่ Render ให้
