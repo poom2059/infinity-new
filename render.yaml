@@ -20,9 +20,12 @@ services:
         value: "true"
       - key: OMISE_ALLOW_SIMULATE
         value: "true"
-      # ทางเลือก: ผูก Render Postgres แล้วใส่ Internal URL ที่นี่
+      # Postgres — จำเป็นสำหรับ production ไม่งั้น server จะ fallback เป็น sqlite
+      # ซึ่งดิสก์บน Render เป็น ephemeral (ข้อมูลหายทุกครั้งที่ deploy/restart)
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: infinity-db
+          property: connectionString
       - key: ADMIN_PHONES
         sync: false
       - key: TWILIO_ACCOUNT_SID
@@ -51,3 +54,9 @@ services:
         sync: false
       - key: LINE_CHANNEL_SECRET
         sync: false
+
+databases:
+  - name: infinity-db
+    plan: free
+    databaseName: infinity
+    user: infinity
