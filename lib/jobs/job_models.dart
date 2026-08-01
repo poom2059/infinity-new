@@ -31,6 +31,22 @@ enum JobListingStatus {
   closed,
 }
 
+/// เพศของผู้รับงานที่ต้องการ
+enum JobGender { any, male, female }
+
+extension JobGenderInfo on JobGender {
+  String get label {
+    switch (this) {
+      case JobGender.any:
+        return 'ทุกเพศ';
+      case JobGender.male:
+        return 'ชาย';
+      case JobGender.female:
+        return 'หญิง';
+    }
+  }
+}
+
 class JobApplicant {
   const JobApplicant({
     required this.id,
@@ -76,6 +92,8 @@ class JobListing {
     required this.workEndMinutes,
     required this.totalBaht,
     required this.createdAt,
+    this.genderPreference = JobGender.any,
+    this.contactPhone = '',
     this.status = JobListingStatus.open,
     List<JobApplicant>? applicants,
     this.chosenApplicantId,
@@ -98,6 +116,8 @@ class JobListing {
   final int workEndMinutes;
   final int totalBaht;
   final DateTime createdAt;
+  final JobGender genderPreference;
+  final String contactPhone;
   JobListingStatus status;
   List<JobApplicant> applicants;
   String? chosenApplicantId;

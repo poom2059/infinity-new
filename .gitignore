@@ -47,6 +47,8 @@ app.*.map.json
 # Machine-specific SDK paths (Flutter / Gradle)
 **/android/local.properties
 
-# Node (API server)
-server/node_modules/
-server/infinity.sqlite
+# Cloudways / Node API
+/server/node_modules/
+/server/public/
+/server/infinity.sqlite
+/deploy/cloudways/dist/

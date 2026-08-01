@@ -38,6 +38,10 @@ dependencies:
   provider: ^6.1.2
   shared_preferences: ^2.3.3
   image_picker: ^1.1.2
+  flutter_map: ^8.3.0
+  latlong2: ^0.9.1
+  google_maps_flutter: ^2.17.1
+  video_player: ^2.10.0
 
 dev_dependencies:
   flutter_test:
@@ -49,6 +53,22 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+# ไอคอนแอป + favicon เว็บ สร้างจากโลโก้ Infinity ด้วย flutter_launcher_icons
+# รันสร้างใหม่ด้วย: dart run flutter_launcher_icons
+flutter_launcher_icons:
+  image_path: "assets/images/infinity_logo.png"
+  android: true
+  ios: true
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: "assets/images/infinity_logo.png"
+    background_color: "#000000"
+    theme_color: "#000000"
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/images/infinity_logo.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

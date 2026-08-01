@@ -1,13 +1,20 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:video_player/video_player.dart';
 
 import 'app/app_scope.dart';
 import 'app/app_theme.dart';
+import 'app/avatar_frames.dart';
 import 'app/login_screen.dart';
+import 'app/notifications_screen.dart';
+import 'app/profile_edit_screen.dart';
+import 'app/saved_places_screen.dart';
+import 'app/social_login_buttons.dart';
 import 'app/ui_strings_th.dart';
 import 'config/app_config.dart';
 import 'data/addresses/address_repository.dart';
@@ -19,8 +26,11 @@ import 'data/auth/auth_user.dart';
 import 'data/catalog/catalog_repository.dart';
 import 'data/maps/maps_repository.dart';
 import 'data/merchant/merchant_repository.dart';
+import 'data/notifications/notification_store.dart';
 import 'data/orders/order_repository.dart';
 import 'data/payments/payment_repository.dart';
+import 'data/places/saved_places_store.dart';
+import 'data/profile/profile_store.dart';
 import 'data/push/push_registration_repository.dart';
 import 'data/wallet/wallet_repository.dart';
 import 'domain/food_ordering.dart';
@@ -281,6 +291,54 @@ void showAppSearchSheet(
   );
 }
 
+/// ปุ่มกระดิ่งแจ้งเตือน พร้อมป้ายจำนวนที่ยังไม่อ่าน
+class _NotifyBellButton extends StatelessWidget {
+  const _NotifyBellButton({required this.onPressed, required this.color});
+
+  final VoidCallback onPressed;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final int unread = context.watch<NotificationStore>().unreadCount;
+    return IconButton(
+      onPressed: onPressed,
+      tooltip: 'แจ้งเตือน',
+      color: color,
+      icon: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          const Icon(Icons.notifications_outlined),
+          if (unread > 0)
+            Positioned(
+              right: -4,
+              top: -4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE3001B),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: kUnifiedTopBarBg, width: 1.5),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  unread > 9 ? '9+' : '$unread',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _AppBarLogo extends StatelessWidget {
   const _AppBarLogo({required this.height});
 
@@ -507,23 +565,40 @@ class SplashScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 36),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () {
-                        Navigator.of(context).pushReplacement(
-                          MaterialPageRoute<void>(
-                            builder: (context) => const HomeScreen(),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          height: 52,
+                          child: FilledButton(
+                            onPressed: () {
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute<void>(
+                                  builder: (context) => const HomeScreen(),
+                                ),
+                              );
+                            },
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.accent,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                            child: const Text('เข้าสู่ระบบ', style: TextStyle(fontWeight: FontWeight.w800)),
                           ),
-                        );
-                      },
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.accent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: const Text('เข้าสู่ระบบ', style: TextStyle(fontWeight: FontWeight.w800)),
+                        ),
+                        const SizedBox(height: 24),
+                        SocialLoginButtons(
+                          onProvider: (provider) {
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute<void>(
+                                builder: (context) => const HomeScreen(),
+                              ),
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -612,7 +687,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     switch (code) {
       case 'notify':
-        _showAction('เปิดแจ้งเตือนแล้ว');
+        Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(builder: (_) => const NotificationsScreen()),
+        );
         return;
       case 'search':
         showAppSearchSheet(
@@ -741,14 +818,8 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         return;
       case 'demo:saved_places':
-        showDemoInfoSheet(
-          context,
-          title: 'ที่อยู่ที่บันทึก',
-          paragraphs: const <String>[
-            'บันทึก บ้าน ที่ทำงาน และจุดโปรด เพื่อเลือกซ้ำได้ในคลิกเดียว',
-            'ที่อยู่ทั้งหมดในหน้านี้เป็นข้อมูลสาธิต',
-          ],
-          bullets: const <String>['บ้าน — ถนนสุขุมวิท (ตัวอย่าง)', 'ที่ทำงาน — ออฟฟิศ (ตัวอย่าง)'],
+        Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(builder: (_) => const SavedPlacesScreen()),
         );
         return;
       case 'demo:help_centre':
@@ -783,13 +854,8 @@ class _HomeScreenState extends State<HomeScreen> {
         });
         return;
       case 'demo:profile':
-        showDemoInfoSheet(
-          context,
-          title: 'โปรไฟล์',
-          paragraphs: const <String>[
-            'แก้ไขชื่อ รูป และเบอร์โทรเมื่อระบบบัญชีพร้อมใช้งาน',
-            'ข้อมูลปัจจุบันเป็นบัญชีสาธิต',
-          ],
+        Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(builder: (_) => const ProfileEditScreen()),
         );
         return;
       case 'demo:about':
@@ -1024,10 +1090,9 @@ class _HomeScreenState extends State<HomeScreen> {
               centerTitle: false,
               title: _AppBarLogo(height: kLogoAppBarHeight),
               actions: [
-                IconButton(
+                _NotifyBellButton(
                   onPressed: () => _onHomeTap('notify'),
-                  icon: const Icon(Icons.notifications_outlined),
-                  tooltip: 'แจ้งเตือน',
+                  color: kUnifiedTopBarFg,
                 ),
               ],
             ),
@@ -1115,10 +1180,8 @@ class _HomeTab extends StatelessWidget {
                   children: [
                     const _AppBarLogo(height: kLogoAppBarHeight),
                     const Spacer(),
-                    IconButton(
+                    _NotifyBellButton(
                       onPressed: () => onHomeTap('notify'),
-                      tooltip: 'แจ้งเตือน',
-                      icon: const Icon(Icons.notifications_outlined),
                       color: kUnifiedTopBarFg,
                     ),
                   ],
@@ -1476,6 +1539,17 @@ class _GrabAccountTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final profile = context.watch<ProfileStore>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      profile.seedFromAccount(name: accountUser?.name, phone: accountUser?.phone);
+    });
+    final String displayName = profile.name.isNotEmpty
+        ? profile.name
+        : (accountUser?.name.isNotEmpty == true ? accountUser!.name : 'สมาชิก ${UiStringsTh.appName}');
+    final String displayPhone = profile.phone.isNotEmpty
+        ? profile.phone
+        : (accountUser?.phone ?? '');
+    final String subtitle = displayPhone.isNotEmpty ? '$displayPhone · แตะแก้ไขโปรไฟล์' : 'แตะเพื่อแก้ไขโปรไฟล์';
     return ColoredBox(
       color: AppColors.canvas,
       child: SingleChildScrollView(
@@ -1497,34 +1571,39 @@ class _GrabAccountTab extends StatelessWidget {
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        const CircleAvatar(
-                          radius: 28,
-                          backgroundColor: AppColors.accentSoft,
-                          child: Text(
-                            'IN',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFFE3001B),
-                              fontSize: 16,
-                            ),
-                          ),
+                        _ProfileAvatar(
+                          dataUrl: profile.avatarDataUrl,
+                          frameId: profile.avatarFrameId,
+                          verified: profile.verificationStatus.isVerified,
                         ),
                         const SizedBox(width: 14),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                accountUser?.name.isNotEmpty == true ? accountUser!.name : 'สมาชิก ${UiStringsTh.appName}',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                  color: AppColors.textPrimary,
-                                ),
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      displayName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  if (profile.verificationStatus.isVerified) ...[
+                                    const SizedBox(width: 6),
+                                    const Icon(Icons.verified_rounded, size: 18, color: Color(0xFF2ECC71)),
+                                  ],
+                                ],
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                accountUser != null ? '${accountUser!.phone} · แตะแก้ไขโปรไฟล์' : 'แตะเพื่อแก้ไขโปรไฟล์',
+                                subtitle,
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: AppColors.textSecondary,
@@ -1672,6 +1751,53 @@ class _GrabAccountTab extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// รูปโปรไฟล์ในแถวบัญชี — แสดงรูปที่ผู้ใช้เลือก (พร้อมกรอบ) หรือ "IN" เมื่อยังไม่มีรูป
+class _ProfileAvatar extends StatelessWidget {
+  const _ProfileAvatar({required this.dataUrl, this.frameId = 'none', this.verified = false});
+
+  final String? dataUrl;
+  final String frameId;
+  final bool verified;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget inner;
+    if (dataUrl != null && dataUrl!.isNotEmpty) {
+      try {
+        final int i = dataUrl!.indexOf(',');
+        final String b64 = i >= 0 ? dataUrl!.substring(i + 1) : dataUrl!;
+        inner = Image.memory(
+          base64Decode(b64),
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          errorBuilder: (_, __, ___) => _initials(),
+        );
+      } catch (_) {
+        inner = _initials();
+      }
+    } else {
+      inner = _initials();
+    }
+    return FramedAvatar(
+      size: 60,
+      frame: AvatarFrameInfo.fromId(frameId),
+      gapColor: AppColors.surface,
+      child: inner,
+    );
+  }
+
+  Widget _initials() {
+    return Container(
+      color: AppColors.accentSoft,
+      alignment: Alignment.center,
+      child: const Text(
+        'IN',
+        style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFFE3001B), fontSize: 16),
       ),
     );
   }
@@ -2274,10 +2400,132 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _GrabPromoSection extends StatelessWidget {
+class _PromoVideoAd {
+  const _PromoVideoAd({
+    required this.videoUrl,
+    required this.title,
+    required this.subtitle,
+    required this.tapId,
+    required this.fallbackColors,
+  });
+
+  final String videoUrl;
+  final String title;
+  final String subtitle;
+  final String tapId;
+  final List<Color> fallbackColors;
+}
+
+class _GrabPromoSection extends StatefulWidget {
   const _GrabPromoSection({required this.onHomeTap});
 
   final ValueChanged<String> onHomeTap;
+
+  @override
+  State<_GrabPromoSection> createState() => _GrabPromoSectionState();
+}
+
+class _GrabPromoSectionState extends State<_GrabPromoSection> {
+  static const _ads = <_PromoVideoAd>[
+    _PromoVideoAd(
+      videoUrl:
+          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+      title: 'ส่งฟรี 3 กม.',
+      subtitle: 'เฉพาะร้านที่ร่วมรายการ',
+      tapId: 'demo:promo_ship',
+      fallbackColors: [Color(0xFFE3001B), Color(0xFFFF4D5E)],
+    ),
+    _PromoVideoAd(
+      videoUrl:
+          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+      title: 'ลดสูงสุด 60%',
+      subtitle: UiStringsTh.flashDealSubtitle,
+      tapId: 'demo:promo_60',
+      fallbackColors: [Color(0xFF8A000D), Color(0xFFE3001B)],
+    ),
+    _PromoVideoAd(
+      videoUrl:
+          'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
+      title: 'สมาชิกใหม่',
+      subtitle: 'รับคูปองพิเศษวันนี้',
+      tapId: 'demo:promo_new',
+      fallbackColors: [Color(0xFF1A1A1A), Color(0xFF3D3D3D)],
+    ),
+  ];
+
+  late final PageController _pageController;
+  final List<VideoPlayerController?> _controllers =
+      List<VideoPlayerController?>.filled(_ads.length, null);
+  final List<bool> _ready = List<bool>.filled(_ads.length, false);
+  Timer? _autoTimer;
+  int _currentPage = 0;
+  bool _userDragging = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.82);
+    _initVideos();
+    _startAutoAdvance();
+  }
+
+  Future<void> _initVideos() async {
+    for (var i = 0; i < _ads.length; i++) {
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse(_ads[i].videoUrl),
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+      );
+      _controllers[i] = controller;
+      try {
+        await controller.initialize();
+        await controller.setLooping(true);
+        await controller.setVolume(0);
+        if (!mounted) return;
+        setState(() => _ready[i] = true);
+        if (i == _currentPage) {
+          unawaited(controller.play());
+        }
+      } catch (_) {
+        // Keep gradient fallback if the network video fails to load.
+      }
+    }
+  }
+
+  void _startAutoAdvance() {
+    _autoTimer?.cancel();
+    _autoTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (!mounted || _userDragging || !_pageController.hasClients) return;
+      final next = (_currentPage + 1) % _ads.length;
+      _pageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 450),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _onPageChanged(int index) {
+    setState(() => _currentPage = index);
+    for (var i = 0; i < _controllers.length; i++) {
+      final c = _controllers[i];
+      if (c == null || !_ready[i]) continue;
+      if (i == index) {
+        unawaited(c.play());
+      } else {
+        unawaited(c.pause());
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _autoTimer?.cancel();
+    _pageController.dispose();
+    for (final c in _controllers) {
+      c?.dispose();
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2287,7 +2535,7 @@ class _GrabPromoSection extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: InkWell(
-            onTap: () => onHomeTap('demo:promos_all'),
+            onTap: () => widget.onHomeTap('demo:promos_all'),
             child: Row(
               children: const [
                 Text(
@@ -2306,94 +2554,170 @@ class _GrabPromoSection extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 148,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            physics: const BouncingScrollPhysics(),
-            children: [
-              _GrabPromoBannerCard(
-                gradient: const [Color(0xFFE3001B), Color(0xFFFF4D5E)],
-                title: 'ส่งฟรี 3 กม.',
-                subtitle: 'เฉพาะร้านที่ร่วมรายการ',
-                onTap: () => onHomeTap('demo:promo_ship'),
-              ),
-              _GrabPromoBannerCard(
-                gradient: const [Color(0xFF8A000D), Color(0xFFE3001B)],
-                title: 'ลดสูงสุด 60%',
-                subtitle: UiStringsTh.flashDealSubtitle,
-                onTap: () => onHomeTap('demo:promo_60'),
-              ),
-              _GrabPromoBannerCard(
-                gradient: const [Color(0xFF1A1A1A), Color(0xFF3D3D3D)],
-                title: 'สมาชิกใหม่',
-                subtitle: 'รับคูปองพิเศษวันนี้',
-                onTap: () => onHomeTap('demo:promo_new'),
-              ),
-            ],
+          height: 168,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: (notification) {
+              if (notification is ScrollStartNotification &&
+                  notification.dragDetails != null) {
+                _userDragging = true;
+                _autoTimer?.cancel();
+              } else if (notification is ScrollEndNotification) {
+                _userDragging = false;
+                _startAutoAdvance();
+              }
+              return false;
+            },
+            child: PageView.builder(
+              controller: _pageController,
+              padEnds: false,
+              itemCount: _ads.length,
+              onPageChanged: _onPageChanged,
+              physics: const BouncingScrollPhysics(),
+              itemBuilder: (context, index) {
+                final ad = _ads[index];
+                final controller = _controllers[index];
+                final ready = _ready[index] && controller != null;
+                return Padding(
+                  padding: EdgeInsets.only(
+                    left: index == 0 ? 16 : 0,
+                    right: 12,
+                  ),
+                  child: _PromoVideoBannerCard(
+                    ad: ad,
+                    controller: ready ? controller : null,
+                    onTap: () => widget.onHomeTap(ad.tapId),
+                  ),
+                );
+              },
+            ),
           ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List<Widget>.generate(_ads.length, (index) {
+            final active = index == _currentPage;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: active ? 16 : 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: active
+                    ? AppColors.textPrimary
+                    : AppColors.textPrimary.withValues(alpha: 0.28),
+                borderRadius: BorderRadius.circular(99),
+              ),
+            );
+          }),
         ),
       ],
     );
   }
 }
 
-class _GrabPromoBannerCard extends StatelessWidget {
-  const _GrabPromoBannerCard({
-    required this.gradient,
-    required this.title,
-    required this.subtitle,
+class _PromoVideoBannerCard extends StatelessWidget {
+  const _PromoVideoBannerCard({
+    required this.ad,
+    required this.controller,
     required this.onTap,
   });
 
-  final List<Color> gradient;
-  final String title;
-  final String subtitle;
+  final _PromoVideoAd ad;
+  final VideoPlayerController? controller;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 260,
-      margin: const EdgeInsets.only(right: 12),
-      child: Material(
-        borderRadius: BorderRadius.circular(16),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: Ink(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: gradient,
+    final hasVideo = controller != null && controller!.value.isInitialized;
+
+    return Material(
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      color: Colors.black,
+      child: InkWell(
+        onTap: onTap,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: ad.fallbackColors,
+                ),
               ),
             ),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
+            if (hasVideo)
+              FittedBox(
+                fit: BoxFit.cover,
+                clipBehavior: Clip.hardEdge,
+                child: SizedBox(
+                  width: controller!.value.size.width,
+                  height: controller!.value.size.height,
+                  child: VideoPlayer(controller!),
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.95),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
+              ),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0x33000000),
+                    Color(0x99000000),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+            Positioned(
+              top: 12,
+              left: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'โฆษณา',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 16,
+              right: 16,
+              bottom: 16,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    ad.title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    ad.subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.95),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -4222,7 +4546,7 @@ class _MartScreenState extends State<MartScreen> {
       );
     }
     return SizedBox(
-      height: smallStyle ? 210 : (hitStyle ? 200 : 188),
+      height: smallStyle ? 248 : (hitStyle ? 252 : 232),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
@@ -4522,12 +4846,12 @@ class _MartStoreTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: AspectRatio(
-                    aspectRatio: 1,
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
                     child: Image.network(
                       outlet.imageUrl,
                       fit: BoxFit.cover,
@@ -4538,24 +4862,24 @@ class _MartStoreTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                ),
-                if (outlet.showPromoRibbon && hitStyle)
-                  Positioned(
-                    top: 6,
-                    left: 6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade700,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'โปรโมชัน',
-                        style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800),
+                  if (outlet.showPromoRibbon && hitStyle)
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade700,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'โปรโมชัน',
+                          style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w800),
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
             const SizedBox(height: 8),
             if (hitStyle && outlet.showPromoRibbon) ...[
@@ -6476,6 +6800,9 @@ class InfinityProductionBootstrap extends StatelessWidget {
             Provider(create: (_) => PushRegistrationRepository(client)),
             Provider(create: (_) => AdminRepository(client)),
             Provider(create: (_) => MerchantRepository(client)),
+            ChangeNotifierProvider<ProfileStore>(create: (_) => ProfileStore(prefs)),
+            ChangeNotifierProvider<NotificationStore>(create: (_) => NotificationStore(prefs)),
+            ChangeNotifierProvider<SavedPlacesStore>(create: (_) => SavedPlacesStore(prefs)),
           ],
           child: Builder(
             builder: (BuildContext c) {

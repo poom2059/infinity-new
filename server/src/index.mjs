@@ -2,11 +2,15 @@ import crypto from 'crypto';
 import express from 'express';
 import cors from 'cors';
 import Database from 'better-sqlite3';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dbPath = path.join(__dirname, '..', 'infinity.sqlite');
+const serverRoot = path.join(__dirname, '..');
+const dbPath = process.env.DB_PATH
+  ? path.resolve(process.env.DB_PATH)
+  : path.join(serverRoot, 'infinity.sqlite');
 const db = new Database(dbPath);
 
 db.exec(`
@@ -191,8 +195,26 @@ function ensureSuperAdminAccounts() {
 ensureSuperAdminAccounts();
 
 const app = express();
-app.use(cors());
+
+// Cloudways / reverse proxy
+app.set('trust proxy', 1);
+
+const corsOrigin = (process.env.CORS_ORIGIN || '').trim();
+app.use(
+  cors(
+    corsOrigin
+      ? {
+          origin: corsOrigin.split(',').map((s) => s.trim()).filter(Boolean),
+          credentials: true,
+        }
+      : undefined,
+  ),
+);
 app.use(express.json({ limit: '12mb' }));
+
+app.get('/health', (_req, res) => {
+  res.json({ ok: true, service: 'infinity-api' });
+});
 
 function auth(req, res, next) {
   const h = req.headers.authorization || '';
@@ -603,8 +625,52 @@ app.delete('/v1/merchant/menu-items/:id', auth, requireRole('merchant'), (req, r
   res.json({ ok: true });
 });
 
+// เสิร์ฟ Flutter Web จาก public/ หรือ ../build/web (โหมด Cloudways Node)
+const serveWeb = String(process.env.SERVE_WEB || 'true').toLowerCase() !== 'false';
+const webCandidates = [
+  process.env.WEB_ROOT ? path.resolve(process.env.WEB_ROOT) : null,
+  path.join(serverRoot, 'public'),
+  path.join(serverRoot, '..', 'build', 'web'),
+].filter(Boolean);
+
+let webRoot = null;
+if (serveWeb) {
+  webRoot = webCandidates.find((p) => fs.existsSync(path.join(p, 'index.html'))) || null;
+  if (webRoot) {
+    app.use(express.static(webRoot, {
+      index: 'index.html',
+      maxAge: '1y',
+      setHeaders(res, filePath) {
+        const base = path.basename(filePath);
+        if (
+          base === 'index.html' ||
+          base === 'flutter_service_worker.js' ||
+          base === 'flutter_bootstrap.js' ||
+          base === 'manifest.json'
+        ) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        }
+      },
+    }));
+    // SPA fallback — อย่ากลืนเส้นทาง API
+    app.use((req, res, next) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+      if (req.path.startsWith('/v1/') || req.path === '/health') return next();
+      res.sendFile(path.join(webRoot, 'index.html'), (err) => {
+        if (err) next();
+      });
+    });
+  }
+}
+
 const port = Number(process.env.PORT || 8787);
-app.listen(port, () => {
-  console.log(`Infinity API http://localhost:${port}`);
+const host = process.env.HOST || '0.0.0.0';
+app.listen(port, host, () => {
+  console.log(`Infinity API http://${host}:${port}`);
+  if (webRoot) {
+    console.log(`Serving Flutter web from ${webRoot}`);
+  } else if (serveWeb) {
+    console.log('SERVE_WEB=true แต่ยังไม่พบ build/web หรือ server/public — เสิร์ฟเฉพาะ API');
+  }
   console.log('ผู้ดูแลระบบ (OTP 6 หลักใดก็ได้): เบอร์ 0810000000 หรือ 0888888888');
 });

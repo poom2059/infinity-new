@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'app_theme.dart';
+import 'social_login_buttons.dart';
 import 'ui_strings_th.dart';
 import '../data/auth/auth_repository.dart';
 import '../data/auth/auth_user.dart';
@@ -22,6 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _code = TextEditingController(text: '123456');
   bool _busy = false;
   String? _error;
+  SocialProvider? _socialBusy;
 
   @override
   void dispose() {
@@ -52,6 +54,31 @@ class _LoginScreenState extends State<LoginScreen> {
     } finally {
       if (mounted) {
         setState(() => _busy = false);
+      }
+    }
+  }
+
+  Future<void> _socialLogin(SocialProvider provider) async {
+    setState(() {
+      _socialBusy = provider;
+      _error = null;
+    });
+    try {
+      final auth = context.read<AuthRepository>();
+      final push = context.read<PushRegistrationRepository>();
+      final user = await auth.loginWithSocial(provider.providerId);
+      await push.registerDeviceToken(AppConfig.fcmDemoToken);
+      if (!mounted) {
+        return;
+      }
+      widget.onLoggedIn(user);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _error = '$e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _socialBusy = null);
       }
     }
   }
@@ -130,6 +157,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
                           : const Text('เข้าสู่ระบบ', style: TextStyle(fontWeight: FontWeight.w800)),
+                    ),
+                    const SizedBox(height: 24),
+                    SocialLoginButtons(
+                      busyProvider: _socialBusy,
+                      onProvider: (_busy || _socialBusy != null) ? (_) {} : _socialLogin,
                     ),
                   ],
                 ),

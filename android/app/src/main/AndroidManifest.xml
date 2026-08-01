@@ -4,6 +4,10 @@
         android:label="Infinity New"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Google Maps Android API key -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyATMNRhKOloGg4jbuc3foveoQrt6_wmEwE"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"

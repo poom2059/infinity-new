@@ -19,6 +19,10 @@ class InfinityApiClient {
 
   Uri _u(String path) {
     final base = AppConfig.instance.apiBaseUrl;
+    if (base.isEmpty) {
+      // same-origin (Cloudways: API กับเว็บอยู่โดเมนเดียวกัน)
+      return Uri.parse(path.startsWith('/') ? path : '/$path');
+    }
     return Uri.parse('$base$path');
   }
 

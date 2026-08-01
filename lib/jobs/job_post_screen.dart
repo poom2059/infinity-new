@@ -27,6 +27,8 @@ class _JobPostScreenState extends State<JobPostScreen> {
   final _total = TextEditingController(text: '2000');
   final _ageMin = TextEditingController(text: '18');
   final _ageMax = TextEditingController(text: '55');
+  final _contactPhone = TextEditingController();
+  JobGender _gender = JobGender.any;
   TimeOfDay _start = const TimeOfDay(hour: 9, minute: 0);
   TimeOfDay _end = const TimeOfDay(hour: 17, minute: 0);
   JobWorkerGenderPreference _genderPref = JobWorkerGenderPreference.any;
@@ -43,6 +45,7 @@ class _JobPostScreenState extends State<JobPostScreen> {
     _total.dispose();
     _ageMin.dispose();
     _ageMax.dispose();
+    _contactPhone.dispose();
     super.dispose();
   }
 
@@ -89,6 +92,7 @@ class _JobPostScreenState extends State<JobPostScreen> {
     final int? total = int.tryParse(_total.text.trim().replaceAll(',', ''));
     final int? ageMin = int.tryParse(_ageMin.text.trim());
     final int? ageMax = int.tryParse(_ageMax.text.trim());
+    final String contactPhone = _contactPhone.text.trim();
 
     if (title.isEmpty || profession.isEmpty || description.isEmpty) {
       _toast('กรอกหัวข้อ อาชีพ/งาน และรายละเอียดให้ครบ');
@@ -100,6 +104,11 @@ class _JobPostScreenState extends State<JobPostScreen> {
     }
     if (_digitCount(storePhone) < 9) {
       _toast('เบอร์โทรร้านควรมีตัวเลขอย่างน้อย 9 หลัก');
+      return;
+    }
+    final String digits = contactPhone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (contactPhone.isNotEmpty && (digits.length < 9 || digits.length > 10)) {
+      _toast('กรอกเบอร์ติดต่อให้ถูกต้อง (9–10 หลัก)');
       return;
     }
     if (jobTextViolatesPolicy('$title $profession $description $storePhone $storeAddress')) {
@@ -166,6 +175,8 @@ class _JobPostScreenState extends State<JobPostScreen> {
       workEndMinutes: _minutes(_end),
       totalBaht: total,
       createdAt: DateTime.now(),
+      genderPreference: _gender,
+      contactPhone: contactPhone,
     );
     JobStore.instance.addListing(listing);
     if (!mounted) {
@@ -278,6 +289,47 @@ class _JobPostScreenState extends State<JobPostScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 18),
+          const Text('เพศของผู้รับงาน', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              for (final JobGender g in JobGender.values) ...[
+                Expanded(
+                  child: ChoiceChip(
+                    label: SizedBox(
+                      width: double.infinity,
+                      child: Text(g.label, textAlign: TextAlign.center),
+                    ),
+                    selected: _gender == g,
+                    onSelected: (_) => setState(() => _gender = g),
+                    showCheckmark: false,
+                    labelStyle: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: _gender == g ? Colors.white : AppColors.textSecondary,
+                    ),
+                    selectedColor: _kRed,
+                    backgroundColor: AppColors.surface,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      side: BorderSide(color: _gender == g ? _kRed : AppColors.border),
+                    ),
+                  ),
+                ),
+                if (g != JobGender.values.last) const SizedBox(width: 10),
+              ],
+            ],
+          ),
+          const SizedBox(height: 18),
+          TextField(
+            controller: _contactPhone,
+            keyboardType: TextInputType.phone,
+            decoration: const InputDecoration(
+              labelText: 'เบอร์ติดต่อ',
+              hintText: 'เช่น 0812345678',
+              prefixIcon: Icon(Icons.phone_outlined),
+            ),
           ),
           const SizedBox(height: 18),
           const Text('เวลาทำงาน (โดยประมาณ)', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.textPrimary)),

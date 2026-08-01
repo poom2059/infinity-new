@@ -161,6 +161,8 @@ class _JobDetailScreenState extends State<JobDetailScreen> {
           _tile(Icons.schedule_rounded, 'เวลาทำงาน', j.workTimeLabel),
           _tile(Icons.phone_in_talk_outlined, 'เบอร์โทรร้าน', j.storePhone),
           _tile(Icons.storefront_outlined, 'สถานที่ตั้งของร้าน', j.storeAddress),
+          if (j.contactPhone.isNotEmpty)
+            _tile(Icons.phone_outlined, 'เบอร์ติดต่อ', j.contactPhone),
           _tile(Icons.payments_outlined, 'ค่าจ้างรวม', '฿${j.totalBaht}'),
           _tile(Icons.savings_outlined, 'มัดจำ 50% (สาธิต)', '฿${j.escrowHalfBaht}'),
           const SizedBox(height: 16),

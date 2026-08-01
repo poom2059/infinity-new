@@ -27,6 +27,24 @@ class AuthRepository {
     return AuthUser.fromJson(data['user'] as Map<String, dynamic>);
   }
 
+  /// ล็อกอินผ่านผู้ให้บริการภายนอก (google / facebook / line)
+  ///
+  /// ส่ง provider ไปยังเซิร์ฟเวอร์เพื่อแลกโทเค็น โดยฝั่งเซิร์ฟเวอร์เป็นผู้ทำ
+  /// OAuth จริงกับผู้ให้บริการแล้วคืน `token` + `user` กลับมา
+  Future<AuthUser> loginWithSocial(String provider) async {
+    final data = await _client.postJson(
+      '/v1/auth/social',
+      {'provider': provider},
+      auth: false,
+    ) as Map<String, dynamic>;
+    final token = data['token'] as String?;
+    if (token == null || token.isEmpty) {
+      throw ApiException('ไม่พบโทเค็นเข้าสู่ระบบ');
+    }
+    await _session.setToken(token);
+    return AuthUser.fromJson(data['user'] as Map<String, dynamic>);
+  }
+
   Future<AuthUser?> fetchMe() async {
     final t = _session.tokenOrNull;
     if (t == null || t.isEmpty) {
