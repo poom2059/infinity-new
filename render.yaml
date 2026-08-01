@@ -4,9 +4,9 @@ services:
     runtime: node
     plan: free
     region: singapore
-    rootDir: server
-    buildCommand: npm install --omit=dev
-    startCommand: npm start
+    # ใช้ cd server ในคำสั่ง เพื่อให้ทำงานแม้ Root Directory ไม่ถูกตั้ง
+    buildCommand: cd server && npm install --omit=dev
+    startCommand: cd server && npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_VERSION
