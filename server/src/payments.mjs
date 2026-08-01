@@ -35,9 +35,11 @@ export async function createPaymentIntent({
   const auth = omiseAuthHeader();
 
   if (!auth) {
-    // Dev fallback: mark as pending_manual — client must not treat as paid.
-    // Only allow simulate when OMISE_ALLOW_SIMULATE=true (staging).
-    if (process.env.OMISE_ALLOW_SIMULATE === 'true') {
+    // ถ้ายังไม่มี Omise key — อนุญาตจำลองจนกว่าจะตั้ง OMISE_ALLOW_SIMULATE=false
+    const allowSim =
+      process.env.OMISE_ALLOW_SIMULATE === 'true' ||
+      (process.env.OMISE_ALLOW_SIMULATE !== 'false' && !(process.env.OMISE_SECRET_KEY || '').trim());
+    if (allowSim) {
       await db.run(
         `INSERT INTO payment_intents (id, user_id, amount_baht, status, order_id, purpose, meta_json)
          VALUES (?,?,?,?,?,?,?)`,
@@ -196,7 +198,10 @@ export async function handleOmiseWebhook(payload) {
 
 /** Staging-only: confirm simulated intent when OMISE_ALLOW_SIMULATE=true */
 export async function confirmSimulated(intentId, userId) {
-  if (process.env.OMISE_ALLOW_SIMULATE !== 'true') {
+  const allowSim =
+    process.env.OMISE_ALLOW_SIMULATE === 'true' ||
+    (process.env.OMISE_ALLOW_SIMULATE !== 'false' && !(process.env.OMISE_SECRET_KEY || '').trim());
+  if (!allowSim) {
     const err = new Error('จำลองการชำระเงินถูกปิด');
     err.status = 403;
     throw err;

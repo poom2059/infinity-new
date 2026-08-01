@@ -44,7 +44,13 @@ export async function createApp() {
   const auth = authMiddleware(db);
 
   app.get('/health', (_req, res) => {
-    res.json({ ok: true, service: 'infinity-api', db: dbDriver() });
+    res.json({
+      ok: true,
+      service: 'infinity-api',
+      db: dbDriver(),
+      rev: process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || 'local',
+      deployed_at: process.env.RENDER_GIT_COMMIT ? undefined : new Date().toISOString(),
+    });
   });
 
   // ---- Auth ----
@@ -449,7 +455,9 @@ export async function createApp() {
               base === 'index.html' ||
               base === 'flutter_service_worker.js' ||
               base === 'flutter_bootstrap.js' ||
-              base === 'manifest.json'
+              base === 'manifest.json' ||
+              base === 'main.dart.js' ||
+              base === 'main.dart.js.map'
             ) {
               res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
             }
