@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -11,11 +12,15 @@ import '../data/push/push_registration_repository.dart';
 import '../services/device_push.dart';
 import '../services/phone_auth.dart';
 import '../services/social_auth.dart';
+import '../services/web_redirect.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, required this.onLoggedIn});
+  const LoginScreen({super.key, required this.onLoggedIn, this.initialError});
 
   final void Function(AuthUser user) onLoggedIn;
+
+  /// ข้อความผิดพลาดจาก OAuth redirect (ถ้ามี)
+  final String? initialError;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -29,6 +34,29 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _useFirebase = false;
   String? _error;
   SocialProvider? _socialBusy;
+  Map<String, String> _webProviders = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    _error = widget.initialError;
+    _loadProviders();
+  }
+
+  Future<void> _loadProviders() async {
+    try {
+      final map = await context.read<AuthRepository>().socialProviders();
+      if (mounted) setState(() => _webProviders = map);
+    } catch (_) {}
+  }
+
+  List<SocialProvider> get _visibleProviders {
+    return SocialProvider.values.where((p) {
+      if (_webProviders.containsKey(p.providerId)) return true;
+      // มือถือยังใช้ Google SDK ได้แม้เซิร์ฟเวอร์ไม่ได้ตั้ง OAuth redirect
+      return !kIsWeb && p == SocialProvider.google;
+    }).toList();
+  }
 
   @override
   void dispose() {
@@ -121,6 +149,15 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
+      final startUrl = _webProviders[provider.providerId];
+      if (kIsWeb) {
+        if (startUrl == null) {
+          throw ApiException('ยังไม่ได้ตั้งค่าการเข้าสู่ระบบด้วย ${provider.label}');
+        }
+        final back = Uri.encodeComponent(WebRedirect.currentUrl);
+        WebRedirect.go('$startUrl?redirect=$back');
+        return;
+      }
       final cred = await SocialAuth.signIn(provider);
       final auth = context.read<AuthRepository>();
       final user = await auth.loginWithSocial(
@@ -224,6 +261,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 24),
                     SocialLoginButtons(
                       busyProvider: _socialBusy,
+                      providers: _visibleProviders,
                       onProvider: (_busy || _socialBusy != null) ? (_) {} : _socialLogin,
                     ),
                   ],

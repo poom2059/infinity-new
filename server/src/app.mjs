@@ -14,6 +14,7 @@ import {
   loginWithSocial,
   userPublic,
 } from './auth.mjs';
+import { registerOauthRoutes } from './oauth.mjs';
 import {
   createPaymentIntent,
   getPaymentIntent,
@@ -84,6 +85,8 @@ export async function createApp() {
       next(e);
     }
   });
+
+  registerOauthRoutes(app);
 
   app.get('/v1/me', auth, async (req, res, next) => {
     try {

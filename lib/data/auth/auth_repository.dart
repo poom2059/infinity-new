@@ -23,6 +23,20 @@ class AuthRepository {
     return _persist(data);
   }
 
+  /// ผู้ให้บริการโซเชียลที่เซิร์ฟเวอร์เปิดใช้งานแล้ว: provider -> start URL
+  Future<Map<String, String>> socialProviders() async {
+    final data = await _client.getJson('/v1/auth/providers', auth: false) as Map<String, dynamic>;
+    final list = data['providers'] as List<dynamic>? ?? const [];
+    final out = <String, String>{};
+    for (final e in list) {
+      final m = e as Map<String, dynamic>;
+      if (m['enabled'] == true) {
+        out['${m['provider']}'] = '${m['start_url']}';
+      }
+    }
+    return out;
+  }
+
   Future<AuthUser> loginWithFirebaseIdToken(String idToken) async {
     final data = await _client.postJson(
       '/v1/auth/firebase',

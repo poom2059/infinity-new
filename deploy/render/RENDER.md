@@ -23,6 +23,20 @@
 | `OMISE_SECRET_KEY` / `OMISE_PUBLIC_KEY` | คีย์ Omise (เริ่มด้วย test ได้) |
 | `OMISE_ALLOW_SIMULATE` | `true` เฉพาะ staging เมื่อยังไม่มี Omise |
 | `GOOGLE_MAPS_SERVER_KEY` | geocode/places ฝั่งเซิร์ฟเวอร์ |
+| `PUBLIC_BASE_URL` | `https://infinity-new.onrender.com` (ใช้สร้าง redirect URI ของ OAuth) |
+| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | ปุ่ม Google |
+| `FACEBOOK_APP_ID` / `FACEBOOK_APP_SECRET` | ปุ่ม Facebook |
+| `LINE_CHANNEL_ID` / `LINE_CHANNEL_SECRET` | ปุ่ม LINE |
+
+ปุ่มโซเชียลจะ **แสดงเฉพาะรายที่ตั้งค่าครบ** (แอปเช็คจาก `GET /v1/auth/providers`)
+
+Redirect URI ที่ต้องลงทะเบียนกับแต่ละผู้ให้บริการ:
+
+```
+https://infinity-new.onrender.com/v1/auth/oauth/google/callback
+https://infinity-new.onrender.com/v1/auth/oauth/facebook/callback
+https://infinity-new.onrender.com/v1/auth/oauth/line/callback
+```
 
 **อย่า**เปิด `ALLOW_DEV_OTP` หรือ `OMISE_ALLOW_SIMULATE` บน production เมื่อมี Twilio/Omise แล้ว — ตั้ง `ALLOW_DEV_OTP=false`
 

@@ -51,18 +51,26 @@ class SocialLoginButtons extends StatelessWidget {
     super.key,
     required this.onProvider,
     this.busyProvider,
+    this.providers,
     this.dividerColor = Colors.white24,
     this.dividerTextColor = Colors.white70,
   });
 
   final void Function(SocialProvider provider) onProvider;
   final SocialProvider? busyProvider;
+
+  /// แสดงเฉพาะผู้ให้บริการที่พร้อมใช้งาน (null = ทั้งหมด)
+  final List<SocialProvider>? providers;
   final Color dividerColor;
   final Color dividerTextColor;
 
   @override
   Widget build(BuildContext context) {
     final bool anyBusy = busyProvider != null;
+    final List<SocialProvider> visible = providers ?? SocialProvider.values;
+    if (visible.isEmpty) {
+      return const SizedBox.shrink();
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -80,13 +88,13 @@ class SocialLoginButtons extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        for (final provider in SocialProvider.values) ...[
+        for (final provider in visible) ...[
           _SocialButton(
             provider: provider,
             busy: busyProvider == provider,
             onPressed: anyBusy ? null : () => onProvider(provider),
           ),
-          if (provider != SocialProvider.values.last) const SizedBox(height: 12),
+          if (provider != visible.last) const SizedBox(height: 12),
         ],
       ],
     );

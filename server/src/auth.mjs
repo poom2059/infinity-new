@@ -178,11 +178,67 @@ export async function verifyFirebaseIdToken(idToken) {
   return { token, user: await userPublic(user.id) };
 }
 
+/** ผู้ให้บริการที่ตั้งค่า OAuth ฝั่งเซิร์ฟเวอร์ครบแล้ว */
+export function socialProviderStatus() {
+  const has = (id, secret) =>
+    Boolean((process.env[id] || '').trim() && (process.env[secret] || '').trim());
+  return {
+    google: has('GOOGLE_OAUTH_CLIENT_ID', 'GOOGLE_OAUTH_CLIENT_SECRET'),
+    facebook: has('FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET'),
+    line: has('LINE_CHANNEL_ID', 'LINE_CHANNEL_SECRET'),
+  };
+}
+
+/** สร้าง/ผูกบัญชีจากโปรไฟล์โซเชียล แล้วออก session */
+export async function upsertSocialUser({ provider, providerUid, email, name }) {
+  const p = String(provider || '').toLowerCase();
+  if (!providerUid) {
+    const err = new Error('ไม่ได้รับรหัสผู้ใช้จากผู้ให้บริการ');
+    err.status = 401;
+    throw err;
+  }
+  const displayName = name || 'สมาชิก Infinity';
+  let user = await db.one(
+    'SELECT * FROM users WHERE auth_provider = ? AND provider_uid = ?',
+    [p, providerUid],
+  );
+  if (!user && email) {
+    user = await db.one('SELECT * FROM users WHERE email = ?', [email]);
+  }
+  if (!user) {
+    const id = crypto.randomUUID();
+    await db.run(
+      `INSERT INTO users (id, phone, email, name, role, auth_provider, provider_uid, wallet_balance_baht, points)
+       VALUES (?,?,?,?,?,?,?,0,0)`,
+      [id, null, email, displayName, 'customer', p, providerUid],
+    );
+    user = await db.one('SELECT * FROM users WHERE id = ?', [id]);
+  } else {
+    await db.run(
+      'UPDATE users SET auth_provider = ?, provider_uid = ?, email = COALESCE(email, ?), name = ? WHERE id = ?',
+      [p, providerUid, email, displayName, user.id],
+    );
+  }
+  const token = await createSession(user.id);
+  return { token, user: await userPublic(user.id) };
+}
+
 export async function loginWithSocial({ provider, idToken, accessToken }) {
   const p = String(provider || '').toLowerCase();
   let email = null;
   let name = 'สมาชิก Infinity';
   let providerUid = null;
+
+  if (!idToken && !accessToken) {
+    const configured = socialProviderStatus()[p];
+    const err = new Error(
+      configured
+        ? `เปิดหน้าเข้าสู่ระบบ ${p} ไม่สำเร็จ กรุณาลองใหม่`
+        : `ยังไม่ได้ตั้งค่าการเข้าสู่ระบบด้วย ${p} บนเซิร์ฟเวอร์`,
+    );
+    err.status = configured ? 400 : 501;
+    throw err;
+  }
 
   if (p === 'google') {
     if (idToken) {
@@ -274,29 +330,7 @@ export async function loginWithSocial({ provider, idToken, accessToken }) {
     throw err;
   }
 
-  let user = await db.one(
-    'SELECT * FROM users WHERE auth_provider = ? AND provider_uid = ?',
-    [p, providerUid],
-  );
-  if (!user && email) {
-    user = await db.one('SELECT * FROM users WHERE email = ?', [email]);
-  }
-  if (!user) {
-    const id = crypto.randomUUID();
-    await db.run(
-      `INSERT INTO users (id, phone, email, name, role, auth_provider, provider_uid, wallet_balance_baht, points)
-       VALUES (?,?,?,?,?,?,?,0,0)`,
-      [id, null, email, name, 'customer', p, providerUid],
-    );
-    user = await db.one('SELECT * FROM users WHERE id = ?', [id]);
-  } else {
-    await db.run(
-      'UPDATE users SET auth_provider = ?, provider_uid = ?, email = COALESCE(email, ?), name = ? WHERE id = ?',
-      [p, providerUid, email, name, user.id],
-    );
-  }
-  const token = await createSession(user.id);
-  return { token, user: await userPublic(user.id) };
+  return upsertSocialUser({ provider: p, providerUid, email, name });
 }
 
 export function authMiddleware(dbRef) {

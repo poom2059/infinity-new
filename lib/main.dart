@@ -43,6 +43,7 @@ import 'portals/admin_portal_screen.dart';
 import 'portals/merchant_menu_manage_screen.dart';
 import 'portals/merchant_onboarding_screen.dart';
 import 'portals/merchant_portal_screen.dart';
+import 'services/web_redirect.dart';
 import 'wallet/wallet_payment_screen.dart';
 
 /// โลโก้หน้า splash (กว้าง)
@@ -400,8 +401,14 @@ class _AppBarTitleWithLogo extends StatelessWidget {
   }
 }
 
+/// โทเคน/ข้อผิดพลาดที่ได้จาก OAuth redirect บนเว็บ (อ่านครั้งเดียวตอนเปิดแอป)
+String? _oauthToken;
+String? _oauthError;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _oauthToken = WebRedirect.takeAuthToken();
+  _oauthError = WebRedirect.takeAuthError();
   if (DefaultFirebaseOptions.isConfigured) {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   }
@@ -6790,6 +6797,12 @@ class _AuthRootState extends State<AuthRoot> {
   }
 
   Future<void> _bootstrap() async {
+    final pending = _oauthToken;
+    if (pending != null && pending.isNotEmpty) {
+      _oauthToken = null;
+      await context.read<AuthSession>().setToken(pending);
+      if (!mounted) return;
+    }
     final u = await context.read<AuthRepository>().fetchMe();
     if (!mounted) {
       return;
@@ -6834,7 +6847,7 @@ class _AuthRootState extends State<AuthRoot> {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.mainDark(),
-        home: LoginScreen(onLoggedIn: _onLoggedIn),
+        home: LoginScreen(onLoggedIn: _onLoggedIn, initialError: _oauthError),
       );
     }
     return AppLogoutScope(
