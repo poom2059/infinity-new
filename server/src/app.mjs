@@ -453,9 +453,11 @@ export async function createApp() {
             const base = path.basename(filePath);
             if (
               base === 'index.html' ||
+              base === 'flutter.js' ||
               base === 'flutter_service_worker.js' ||
               base === 'flutter_bootstrap.js' ||
               base === 'manifest.json' ||
+              base === 'version.json' ||
               base === 'main.dart.js' ||
               base === 'main.dart.js.map'
             ) {

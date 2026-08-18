@@ -1,6 +1,6 @@
 /// ข้อความ UI ภาษาไทย — รวมไว้ที่เดียวเพื่อให้สอดคล้องและแก้ไขง่าย
 abstract final class UiStringsTh {
-  static const appName = 'อินฟินิตี้';
+  static const appName = 'INFINITY';
 
   /// ชื่อบริการซูเปอร์มาร์ท / ช้อปปิ้ง (เดิมใช้คำว่า Mart)
   static const mart = 'ซูเปอร์มาร์ท';

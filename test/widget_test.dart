@@ -34,7 +34,7 @@ void main() {
 
     await tester.tap(find.text('บัญชี'));
     await tester.pumpAndSettle();
-    expect(find.text('สมาชิก Infinity'), findsOneWidget);
+    expect(find.text('สมาชิก INFINITY'), findsOneWidget);
     expect(find.text('การชำระเงิน'), findsOneWidget);
   });
 }

@@ -6,7 +6,7 @@
 - Flutter Web + Express API โดเมนเดียวกัน
 - OTP: มี Twilio = SMS จริง / ยังไม่มี = ได้รหัสชั่วคราวในแอป
 - ชำระเงิน: มี Omise = PromptPay จริง / ยังไม่มี = โหมดจำลองในแอป
-- ปุ่มโซเชียล: แสดงเฉพาะรายที่ตั้งค่า OAuth ครบ
+- ปุ่มโซเชียล: แสดง Google / Facebook / LINE เสมอ (เข้าได้เมื่อตั้งค่า OAuth ครบ)
 
 ## Environment บน Render (Web Service)
 

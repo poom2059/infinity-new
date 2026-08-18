@@ -30,8 +30,9 @@ class AuthRepository {
     final out = <String, String>{};
     for (final e in list) {
       final m = e as Map<String, dynamic>;
-      if (m['enabled'] == true) {
-        out['${m['provider']}'] = '${m['start_url']}';
+      final startUrl = '${m['start_url'] ?? ''}';
+      if (startUrl.isNotEmpty) {
+        out['${m['provider']}'] = startUrl;
       }
     }
     return out;

@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import 'app_theme.dart';
 import 'social_login_buttons.dart';
-import 'ui_strings_th.dart';
 import '../data/api/api_exception.dart';
 import '../data/auth/auth_repository.dart';
 import '../data/auth/auth_user.dart';
@@ -50,13 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (_) {}
   }
 
-  List<SocialProvider> get _visibleProviders {
-    return SocialProvider.values.where((p) {
-      if (_webProviders.containsKey(p.providerId)) return true;
-      // มือถือยังใช้ Google SDK ได้แม้เซิร์ฟเวอร์ไม่ได้ตั้ง OAuth redirect
-      return !kIsWeb && p == SocialProvider.google;
-    }).toList();
-  }
+  List<SocialProvider> get _visibleProviders => SocialProvider.values;
 
   @override
   void dispose() {
@@ -188,16 +181,28 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Image.asset(
+                      'assets/images/infinity_logo.png',
+                      height: 88,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, _, _) => const Icon(
+                        Icons.all_inclusive,
+                        size: 72,
+                        color: Color(0xFFE3001B),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     const Text(
-                      UiStringsTh.appName,
+                      'INFINITY',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 28,
+                        fontSize: 32,
                         fontWeight: FontWeight.w900,
+                        letterSpacing: 6,
                         color: SplashTheme.text,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Text(
                       'เข้าสู่ระบบด้วยเบอร์โทรศัพท์\nระบบจะส่งรหัส OTP จริงไปยังเบอร์ของคุณ',
                       textAlign: TextAlign.center,

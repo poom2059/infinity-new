@@ -134,9 +134,12 @@ export function registerOauthRoutes(app) {
       const cfg = PROVIDERS[provider];
       if (!cfg) return res.status(404).json({ error: 'ผู้ให้บริการไม่รองรับ' });
       if (!socialProviderStatus()[provider]) {
-        return res
-          .status(501)
-          .json({ error: `ยังไม่ได้ตั้งค่า ${cfg.idEnv} / ${cfg.secretEnv} บนเซิร์ฟเวอร์` });
+        const back = new URL(safeAppRedirect(req, req.query.redirect));
+        back.searchParams.set(
+          'auth_error',
+          `ยังไม่ได้ตั้งค่า ${cfg.idEnv} / ${cfg.secretEnv} บนเซิร์ฟเวอร์`,
+        );
+        return res.redirect(back.toString());
       }
       const state = crypto.randomBytes(16).toString('hex');
       rememberState(state, {
