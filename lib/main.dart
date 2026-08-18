@@ -6695,13 +6695,20 @@ class _MenuItemDetailScreenState extends State<MenuItemDetailScreen> {
 }
 
 /// รากแอป: โหลด [SharedPreferences], ผูก Provider, ล็อกอินเมื่อ `USE_API=true`
-class InfinityProductionBootstrap extends StatelessWidget {
+class InfinityProductionBootstrap extends StatefulWidget {
   const InfinityProductionBootstrap({super.key});
+
+  @override
+  State<InfinityProductionBootstrap> createState() => _InfinityProductionBootstrapState();
+}
+
+class _InfinityProductionBootstrapState extends State<InfinityProductionBootstrap> {
+  late final Future<SharedPreferences> _prefsFuture = SharedPreferences.getInstance();
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<SharedPreferences>(
-      future: SharedPreferences.getInstance(),
+      future: _prefsFuture,
       builder: (context, snap) {
         if (!snap.hasData) {
           return MaterialApp(
@@ -6803,6 +6810,23 @@ class _AuthRootState extends State<AuthRoot> {
       await context.read<AuthSession>().setToken(pending);
       if (!mounted) return;
     }
+    final session = context.read<AuthSession>();
+    final cached = session.cachedUser;
+    if (cached != null && (session.tokenOrNull ?? '').isNotEmpty) {
+      context.read<ProfileStore>().bindUser(cached.id);
+      context.read<ProfileStore>().applyFromServer(
+            name: cached.name,
+            phone: cached.phone,
+            avatarUrl: cached.avatarUrl,
+            frameId: cached.avatarFrame,
+          );
+      if (mounted) {
+        setState(() {
+          _user = cached;
+          _loading = false;
+        });
+      }
+    }
     final u = await context.read<AuthRepository>().fetchMe();
     if (!mounted) {
       return;
@@ -6812,20 +6836,43 @@ class _AuthRootState extends State<AuthRoot> {
       _loading = false;
     });
     if (u != null) {
-      await _syncStores();
+      await _syncStores(u);
     }
   }
 
   void _onLoggedIn(AuthUser u) {
     setState(() => _user = u);
-    _syncStores();
+    _syncStores(u);
   }
 
-  Future<void> _syncStores() async {
+  Future<void> _syncStores(AuthUser u) async {
     try {
+      context.read<ProfileStore>().bindUser(u.id);
+      context.read<ProfileStore>().applyFromServer(
+            name: u.name,
+            phone: u.phone,
+            avatarUrl: u.avatarUrl,
+            frameId: u.avatarFrame,
+          );
+      final profile = context.read<ProfileStore>();
+      final needsPush = (profile.name.isNotEmpty && profile.name != u.name) ||
+          (profile.phone.isNotEmpty && profile.phone != u.phone) ||
+          (profile.hasAvatar && profile.avatarDataUrl != u.avatarUrl) ||
+          (profile.avatarFrameId != 'none' && profile.avatarFrameId != (u.avatarFrame ?? 'none'));
+      if (needsPush) {
+        try {
+          await context.read<AuthRepository>().updateProfile(
+                name: profile.name,
+                phone: profile.phone,
+                avatarUrl: profile.avatarDataUrl ?? '',
+                avatarFrame: profile.avatarFrameId,
+              );
+        } catch (_) {}
+      }
       await context.read<NotificationStore>().refresh();
       await context.read<SavedPlacesStore>().refresh();
       await JobStore.instance.refresh();
+      await OrderStore.loadRemoteHistory();
     } catch (_) {}
   }
 

@@ -255,6 +255,8 @@ CREATE TABLE IF NOT EXISTS saved_places (
     ['provider_uid', 'ALTER TABLE users ADD COLUMN provider_uid TEXT'],
     ['wallet_balance_baht', 'ALTER TABLE users ADD COLUMN wallet_balance_baht REAL NOT NULL DEFAULT 0'],
     ['points', 'ALTER TABLE users ADD COLUMN points INTEGER NOT NULL DEFAULT 0'],
+    ['avatar_url', 'ALTER TABLE users ADD COLUMN avatar_url TEXT'],
+    ['avatar_frame', "ALTER TABLE users ADD COLUMN avatar_frame TEXT NOT NULL DEFAULT 'none'"],
   ]) {
     if (!userCols.includes(col)) sqlite.exec(ddl);
   }
@@ -345,6 +347,8 @@ CREATE TABLE IF NOT EXISTS saved_places (
   lat DOUBLE PRECISION, lng DOUBLE PRECISION
 );
 `);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT`);
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_frame TEXT DEFAULT 'none'`);
 }
 
 async function seedIfEmpty() {

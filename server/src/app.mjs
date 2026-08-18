@@ -104,8 +104,28 @@ export async function createApp() {
 
   app.patch('/v1/me', auth, async (req, res, next) => {
     try {
-      const { name } = req.body || {};
-      if (name) await db.run('UPDATE users SET name = ? WHERE id = ?', [String(name), req.userId]);
+      const { name, phone, avatar_url, avatar_frame } = req.body || {};
+      if (name != null) {
+        await db.run('UPDATE users SET name = ? WHERE id = ?', [String(name).trim() || 'สมาชิก Infinity', req.userId]);
+      }
+      if (phone != null) {
+        const p = String(phone).replace(/\D/g, '');
+        if (p) {
+          const taken = await db.one('SELECT id FROM users WHERE phone = ? AND id != ?', [p, req.userId]);
+          if (taken) {
+            const err = new Error('เบอร์นี้ถูกใช้แล้ว');
+            err.status = 409;
+            throw err;
+          }
+          await db.run('UPDATE users SET phone = ? WHERE id = ?', [p, req.userId]);
+        }
+      }
+      if (avatar_url != null) {
+        await db.run('UPDATE users SET avatar_url = ? WHERE id = ?', [String(avatar_url), req.userId]);
+      }
+      if (avatar_frame != null) {
+        await db.run('UPDATE users SET avatar_frame = ? WHERE id = ?', [String(avatar_frame), req.userId]);
+      }
       res.json(await userPublic(req.userId));
     } catch (e) {
       next(e);

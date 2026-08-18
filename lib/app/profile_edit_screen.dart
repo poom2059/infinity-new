@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import 'app_theme.dart';
 import 'avatar_frames.dart';
+import '../data/auth/auth_repository.dart';
 import '../data/profile/profile_store.dart';
 
 /// หน้าปรับแต่งโปรไฟล์: เปลี่ยนรูป / ชื่อ / เบอร์โทร และยืนยันตัวตน (ไม่บังคับ)
@@ -143,6 +144,16 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             avatarDataUrl: _avatarDataUrl ?? '',
             frameId: _frame.id,
           );
+      try {
+        await context.read<AuthRepository>().updateProfile(
+              name: _name.text.trim(),
+              phone: _phone.text.trim(),
+              avatarUrl: _avatarDataUrl ?? '',
+              avatarFrame: _frame.id,
+            );
+      } catch (_) {
+        // เซิร์ฟเวอร์ล่มชั่วคราว — ค่าในเครื่องถูกบันทึกแล้ว จะซิงก์ใหม่ตอนรีเฟรช
+      }
       if (!mounted) {
         return;
       }

@@ -56,18 +56,81 @@ class ProfileStore extends ChangeNotifier {
   IdVerificationStatus get verificationStatus => _status;
   bool get hasAvatar => _avatarDataUrl != null && _avatarDataUrl!.isNotEmpty;
 
+  String _userId = 'local';
+
+  String _k(String suffix) => 'profile_${_userId}_$suffix';
+
   void _load() {
-    _name = _prefs.getString(_kName) ?? '';
-    _phone = _prefs.getString(_kPhone) ?? '';
-    _avatarDataUrl = _prefs.getString(_kAvatar);
-    _idCardDataUrl = _prefs.getString(_kIdCard);
-    _faceDataUrl = _prefs.getString(_kFace);
-    final s = _prefs.getString(_kStatus);
+    var name = _prefs.getString(_k('name')) ?? '';
+    var phone = _prefs.getString(_k('phone')) ?? '';
+    var avatar = _prefs.getString(_k('avatar'));
+    var idCard = _prefs.getString(_k('id_card'));
+    var face = _prefs.getString(_k('face'));
+    var statusRaw = _prefs.getString(_k('verify_status'));
+    var frame = _prefs.getString(_k('frame')) ?? 'none';
+
+    // ย้ายค่าจากคีย์เก่ารุ่นก่อนที่ยังไม่แยกตามผู้ใช้
+    if (name.isEmpty && phone.isEmpty && avatar == null) {
+      name = _prefs.getString(_kName) ?? name;
+      phone = _prefs.getString(_kPhone) ?? phone;
+      avatar = _prefs.getString(_kAvatar) ?? avatar;
+      idCard = _prefs.getString(_kIdCard) ?? idCard;
+      face = _prefs.getString(_kFace) ?? face;
+      statusRaw = _prefs.getString(_kStatus) ?? statusRaw;
+      frame = _prefs.getString(_kFrame) ?? frame;
+    }
+
+    _name = name;
+    _phone = phone;
+    _avatarDataUrl = avatar;
+    _idCardDataUrl = idCard;
+    _faceDataUrl = face;
     _status = IdVerificationStatus.values.firstWhere(
-      (IdVerificationStatus e) => e.name == s,
+      (IdVerificationStatus e) => e.name == statusRaw,
       orElse: () => IdVerificationStatus.none,
     );
-    _frameId = _prefs.getString(_kFrame) ?? 'none';
+    _frameId = frame;
+  }
+
+  /// ผูกโปรไฟล์กับบัญชีที่ล็อกอิน เพื่อให้รีเฟรชแล้วยังเป็นคนเดิม
+  void bindUser(String userId) {
+    final id = userId.trim().isEmpty ? 'local' : userId.trim();
+    if (_userId == id) {
+      return;
+    }
+    _userId = id;
+    _load();
+    notifyListeners();
+  }
+
+  /// เติมจากเซิร์ฟเวอร์เฉพาะช่องที่ในเครื่องยังว่าง
+  void applyFromServer({String? name, String? phone, String? avatarUrl, String? frameId}) {
+    var changed = false;
+    if (_name.isEmpty && name != null && name.trim().isNotEmpty) {
+      _name = name.trim();
+      changed = true;
+    }
+    if (_phone.isEmpty && phone != null && phone.trim().isNotEmpty) {
+      _phone = phone.trim();
+      changed = true;
+    }
+    if ((_avatarDataUrl == null || _avatarDataUrl!.isEmpty) &&
+        avatarUrl != null &&
+        avatarUrl.isNotEmpty) {
+      _avatarDataUrl = avatarUrl;
+      changed = true;
+    }
+    if ((_frameId.isEmpty || _frameId == 'none') &&
+        frameId != null &&
+        frameId.isNotEmpty &&
+        frameId != 'none') {
+      _frameId = frameId;
+      changed = true;
+    }
+    if (changed) {
+      _persist();
+      notifyListeners();
+    }
   }
 
   /// เติมค่าเริ่มต้นจากบัญชีที่ล็อกอิน — เฉพาะช่องที่ผู้ใช้ยังไม่เคยตั้งเอง
@@ -131,13 +194,13 @@ class ProfileStore extends ChangeNotifier {
   }
 
   Future<void> _persist() async {
-    await _prefs.setString(_kName, _name);
-    await _prefs.setString(_kPhone, _phone);
-    await _writeOrRemove(_kAvatar, _avatarDataUrl);
-    await _writeOrRemove(_kIdCard, _idCardDataUrl);
-    await _writeOrRemove(_kFace, _faceDataUrl);
-    await _prefs.setString(_kStatus, _status.name);
-    await _prefs.setString(_kFrame, _frameId);
+    await _prefs.setString(_k('name'), _name);
+    await _prefs.setString(_k('phone'), _phone);
+    await _writeOrRemove(_k('avatar'), _avatarDataUrl);
+    await _writeOrRemove(_k('id_card'), _idCardDataUrl);
+    await _writeOrRemove(_k('face'), _faceDataUrl);
+    await _prefs.setString(_k('verify_status'), _status.name);
+    await _prefs.setString(_k('frame'), _frameId);
   }
 
   Future<void> _writeOrRemove(String key, String? value) async {

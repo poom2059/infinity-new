@@ -12,14 +12,79 @@ function normalizePhone(phone) {
 }
 
 export async function createSession(userId) {
-  const token = crypto.randomBytes(24).toString('hex');
-  await db.run('INSERT INTO sessions (token, user_id) VALUES (?, ?)', [token, userId]);
+  const user = await db.one('SELECT * FROM users WHERE id = ?', [userId]);
+  const token = signSessionToken(user || { id: userId });
+  try {
+    await db.run('INSERT INTO sessions (token, user_id) VALUES (?, ?)', [token, userId]);
+  } catch (_) {
+    // JWT พอใช้ได้แม้ตาราง sessions เต็ม/หาย
+  }
   return token;
+}
+
+function sessionSecret() {
+  const raw = (process.env.SESSION_SECRET || process.env.DATABASE_URL || 'infinity-web-session-v1').trim();
+  return raw.slice(0, 80) || 'infinity-web-session-v1';
+}
+
+function signSessionToken(user) {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const payload = Buffer.from(
+    JSON.stringify({
+      sub: user.id,
+      phone: user.phone || '',
+      name: user.name || '',
+      role: user.role || 'customer',
+      merchant_slug: user.merchant_slug || null,
+      iat: Math.floor(Date.now() / 1000),
+      exp: Math.floor(Date.now() / 1000) + 180 * 24 * 60 * 60,
+    }),
+  ).toString('base64url');
+  const data = `${header}.${payload}`;
+  const sig = crypto.createHmac('sha256', sessionSecret()).update(data).digest('base64url');
+  return `${data}.${sig}`;
+}
+
+function verifySessionToken(token) {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 3) return null;
+  const [header, payload, sig] = parts;
+  const expected = crypto.createHmac('sha256', sessionSecret()).update(`${header}.${payload}`).digest('base64url');
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  try {
+    const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (claims.exp && Number(claims.exp) < Date.now() / 1000) return null;
+    if (!claims.sub) return null;
+    return claims;
+  } catch {
+    return null;
+  }
+}
+
+async function ensureUserFromJwt(claims) {
+  const id = String(claims.sub);
+  const existing = await db.one('SELECT id FROM users WHERE id = ?', [id]);
+  if (existing) return id;
+  const phone = String(claims.phone || '').trim() || null;
+  if (phone) {
+    const byPhone = await db.one('SELECT id FROM users WHERE phone = ?', [phone]);
+    if (byPhone) return byPhone.id;
+  }
+  await db.run(
+    `INSERT INTO users (id, phone, name, role, merchant_slug, wallet_balance_baht, points)
+     VALUES (?,?,?,?,?,0,0)`,
+    [id, phone, claims.name || 'สมาชิก Infinity', claims.role || 'customer', claims.merchant_slug || null],
+  );
+  return id;
 }
 
 export async function userPublic(userId) {
   return db.one(
-    'SELECT id, phone, email, name, role, merchant_slug, wallet_balance_baht, points FROM users WHERE id = ?',
+    `SELECT id, phone, email, name, role, merchant_slug, wallet_balance_baht, points,
+            avatar_url, avatar_frame
+     FROM users WHERE id = ?`,
     [userId],
   );
 }
@@ -339,6 +404,11 @@ export function authMiddleware(dbRef) {
       const h = req.headers.authorization || '';
       const token = h.startsWith('Bearer ') ? h.slice(7) : null;
       if (!token) return res.status(401).json({ error: 'missing token' });
+      const claims = verifySessionToken(token);
+      if (claims?.sub) {
+        req.userId = await ensureUserFromJwt(claims);
+        return next();
+      }
       const row = await dbRef.one('SELECT user_id FROM sessions WHERE token = ?', [token]);
       if (!row) return res.status(401).json({ error: 'invalid token' });
       req.userId = row.user_id;

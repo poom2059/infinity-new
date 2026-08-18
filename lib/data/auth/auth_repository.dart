@@ -70,7 +70,9 @@ class AuthRepository {
       throw ApiException('ไม่พบโทเค็นเข้าสู่ระบบ');
     }
     await _session.setToken(token);
-    return AuthUser.fromJson(data['user'] as Map<String, dynamic>);
+    final user = AuthUser.fromJson(data['user'] as Map<String, dynamic>);
+    await _session.setCachedUser(user);
+    return user;
   }
 
   Future<AuthUser?> fetchMe() async {
@@ -80,16 +82,40 @@ class AuthRepository {
     }
     try {
       final data = await _client.getJson('/v1/me') as Map<String, dynamic>;
-      return AuthUser.fromJson(data);
-    } on ApiException {
-      await _session.clear();
-      return null;
+      final user = AuthUser.fromJson(data as Map<String, dynamic>);
+      await _session.setCachedUser(user);
+      return user;
+    } on ApiException catch (e) {
+      // 401 จริง = โทเคนใช้ไม่ได้ ถึงจะออกจากระบบ ส่วนเน็ตหลุด/เซิร์ฟเวอร์หลับให้ใช้สแนปชอตเดิม
+      if (e.statusCode == 401) {
+        final token = _session.tokenOrNull ?? '';
+        if (token.split('.').length == 3) {
+          return _session.cachedUser;
+        }
+        await _session.clear();
+        return null;
+      }
+      return _session.cachedUser;
+    } catch (_) {
+      return _session.cachedUser;
     }
   }
 
-  Future<AuthUser> updateProfile({String? name}) async {
-    final data = await _client.patchJson('/v1/me', {if (name != null) 'name': name}) as Map<String, dynamic>;
-    return AuthUser.fromJson(data);
+  Future<AuthUser> updateProfile({
+    String? name,
+    String? phone,
+    String? avatarUrl,
+    String? avatarFrame,
+  }) async {
+    final data = await _client.patchJson('/v1/me', {
+      if (name != null) 'name': name,
+      if (phone != null) 'phone': phone,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
+      if (avatarFrame != null) 'avatar_frame': avatarFrame,
+    }) as Map<String, dynamic>;
+    final user = AuthUser.fromJson(data);
+    await _session.setCachedUser(user);
+    return user;
   }
 
   Future<void> logout() => _session.clear();

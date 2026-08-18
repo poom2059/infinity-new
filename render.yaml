@@ -26,6 +26,8 @@ services:
         fromDatabase:
           name: infinity-db
           property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
       - key: ADMIN_PHONES
         sync: false
       - key: TWILIO_ACCOUNT_SID
