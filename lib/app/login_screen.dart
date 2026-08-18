@@ -183,11 +183,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     Image.asset(
                       'assets/images/infinity_logo.png',
-                      height: 88,
+                      height: 123,
                       fit: BoxFit.contain,
                       errorBuilder: (context, _, _) => const Icon(
                         Icons.all_inclusive,
-                        size: 72,
+                        size: 101,
                         color: Color(0xFFE3001B),
                       ),
                     ),
